@@ -486,7 +486,6 @@ double rand_beta
    The GNU Lesser General Public License is included with these source
    files in the file LGPL. */
 
-#include <errno.h>
 #include <limits.h>
 #include <sys/types.h>
 
