@@ -14,30 +14,21 @@
  */
 
 
-/* DECODING METHOD, ITS PARAMETERS, AND OTHER VARIABLES.  The global variables 
-   declared here are located in dec.c. */
+/* DECODING METHOD. */
 
 typedef enum 
 { Enum_block, Enum_bit, Prprp
 } decoding_method;
 
-extern decoding_method dec_method; /* Decoding method to use */
-
-extern int table;	/* Trace option, 2 for a table of decoding details */
-extern int block_no;	/* Number of current block, from zero */
-
-extern int max_iter;	/* Maximum number of iteratons of decoding to do */
-extern char *gen_file;	/* Generator file for Enum_block and Enum_bit */
-
 
 /* PROCEDURES RELATING TO DECODING METHODS. */
 
-void enum_decode_setup (void);
-unsigned enum_decode (double *, char *, double *, int);
+void enum_decode_setup (gen_matrix *gm, int table, char *gen_file);
+unsigned enum_decode (double *, char *, double *, int, mod2sparse *H, gen_matrix *gm, int table, int block_no);
 
-void prprp_decode_setup (void);
+void prprp_decode_setup (int table);
 unsigned prprp_decode 
-(mod2sparse *, double *, char *, char *, double *);
+(mod2sparse *, double *, char *, char *, double *, int table, int block_no, int max_iter);
 
 void initprp (mod2sparse *, double *, char *, double *);
 void iterprp (mod2sparse *, double *, char *, double *);

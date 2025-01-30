@@ -14,20 +14,9 @@
  */
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
 #include "channel.h"
-
-
-/* GLOBAL VARIABLES.  Declared in channel.h. */
-
-channel_type channel;	/* Type of channel */
-
-double error_prob;	/* Error probability for BSC */
-double std_dev;		/* Noise standard deviation for AWGN */
-double lwidth;		/* Width of noise distribution for AWLN */
 
 
 /* PARSE A COMMAND-LINE SPECIFICATION OF A CHANNEL.  Takes a pointer to an
@@ -36,14 +25,13 @@ double lwidth;		/* Width of noise distribution for AWLN */
    zero if the argument list does not start with a channel specification.
    Returns -1 if there seems to be a channel specification here, but it's 
    invalid.
-
-   Sets the variables declared in channel.h to the type and parameters of
-   the channel.
  */
 
 int channel_parse
 ( char **argv,		/* Pointer to argument list */
-  int argc		/* Number of arguments in list */
+  int argc,		/* Number of arguments in list */
+  channel_type *channel, /* (output parameter) Type of channel */
+  double *channel_data /* (output parameter) BSC: Error probability, AWGN: Noise standard deviation, AWLN: Width of noise distribution */
 )
 { 
   char junk;
@@ -52,9 +40,9 @@ int channel_parse
 
   if (strcmp(argv[0],"bsc")==0  || strcmp(argv[0],"BSC")==0)
   { 
-    channel = BSC;
-    if (argc<2 || sscanf(argv[1],"%lf%c",&error_prob,&junk)!=1 
-     || error_prob<=0 || error_prob>=1)
+    *channel = BSC;
+    if (argc<2 || sscanf(argv[1],"%lf%c",channel_data,&junk)!=1
+     || *channel_data<=0 || *channel_data>=1)
     { return -1;
     }
     else
@@ -63,9 +51,9 @@ int channel_parse
   }
   else if (strcmp(argv[0],"awgn")==0 || strcmp(argv[0],"AWGN")==0)
   { 
-    channel = AWGN;
-    if (argc<2 || sscanf(argv[1],"%lf%c",&std_dev,&junk)!=1 
-     || std_dev<=0)
+    *channel = AWGN;
+    if (argc<2 || sscanf(argv[1],"%lf%c",channel_data,&junk)!=1
+     || *channel_data<=0)
     { return -1;
     }
     else
@@ -74,9 +62,9 @@ int channel_parse
   }
   else if (strcmp(argv[0],"awln")==0 || strcmp(argv[0],"AWLN")==0)
   {
-    channel = AWLN;
-    if (argc<2 || sscanf(argv[1],"%lf%c",&lwidth,&junk)!=1 
-     || lwidth<=0)
+    *channel = AWLN;
+    if (argc<2 || sscanf(argv[1],"%lf%c",channel_data,&junk)!=1
+     || *channel_data<=0)
     { return -1;
     }
     else
@@ -85,7 +73,7 @@ int channel_parse
   }
   else if (strcmp(argv[0],"misc")==0 || strcmp(argv[0],"MISC")==0)
   {
-    channel = MISC;
+    *channel = MISC;
     return 2;
   }
   else

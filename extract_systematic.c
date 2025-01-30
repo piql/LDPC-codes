@@ -16,14 +16,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
-#include "alloc.h"
-#include "blockio.h"
 #include "open.h"
 #include "mod2sparse.h"
 #include "mod2dense.h"
-#include "mod2convert.h"
 #include "rcode.h"
 
 void usage(void);
@@ -40,8 +36,11 @@ int main
   FILE *systematicf;
   int i;
 
+  gen_matrix gm;
+
   /* Look at arguments. */
 
+  (void)argc;
   if (!(gen_file = argv[1])
    || !(systematic_file = argv[2])
    || argv[3])
@@ -56,7 +55,7 @@ int main
   /* Read generator matrix file, up to the point of finding out which
      are the message bits. */
   
-  read_gen(gen_file,1,1);
+  read_gen(gen_file,1,1, &gm);
 
 
   /* Open file to write systematic positions to. */
@@ -67,8 +66,8 @@ int main
     exit(1);
   }
 
-   for (i = M; i<N; i++)
-   { fprintf(systematicf,"%d\n",cols[i]);
+   for (i = gm.dim.M; i<gm.dim.N; i++)
+   { fprintf(systematicf,"%d\n",gm.cols[i]);
    }
 
   if (ferror(systematicf) || fclose(systematicf)!=0)

@@ -16,14 +16,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
 #include "alloc.h"
 #include "blockio.h"
 #include "open.h"
 #include "mod2sparse.h"
 #include "mod2dense.h"
-#include "mod2convert.h"
 #include "rcode.h"
 #include "check.h"
 
@@ -48,6 +46,9 @@ int main
   FILE *srcf, *codef;
 
   int tot_srcerrs, tot_chkerrs, tot_botherrs;
+
+  mod2sparse *H;
+  gen_matrix gm;
 
   /* Look at arguments. */
 
@@ -88,11 +89,11 @@ int main
 
   /* Read parity check file. */
 
-  read_pchk(pchk_file);
+  H = read_pchk(pchk_file, &gm.dim);
 
-  if (N<=M)
+  if (gm.dim.N<=gm.dim.M)
   { fprintf(stderr,
-     "Number of bits (%d) should be greater than number of checks (%d)\n",N,M);
+     "Number of bits (%d) should be greater than number of checks (%d)\n",gm.dim.N,gm.dim.M);
     exit(1);
   }
 
@@ -100,7 +101,7 @@ int main
      out which are the message bits. */
 
   if (gen_file!=0)
-  { read_gen(gen_file,1,0);
+  { read_gen(gen_file,1,0, &gm);
   }
 
   /* Open coded file to check. */
@@ -122,9 +123,9 @@ int main
     }
   }
 
-  sblk = chk_alloc (N-M, sizeof *sblk);
-  cblk = chk_alloc (N, sizeof *cblk);
-  chks = chk_alloc (M, sizeof *chks);
+  sblk = chk_alloc (gm.dim.N-gm.dim.M, sizeof *sblk);
+  cblk = chk_alloc (gm.dim.N, sizeof *cblk);
+  chks = chk_alloc (gm.dim.M, sizeof *chks);
 
   /* Print header for table. */
 
@@ -152,14 +153,14 @@ int main
   { 
     /* Read block from coded file. */
     
-    if (blockio_read(codef,cblk,N)==EOF) 
+    if (blockio_read(codef,cblk,gm.dim.N)==EOF) 
     { ceof = 1;
     }
 
     /* Read block from source file, if given. */
 
     if (source_file!=0 && !ceof && !seof)
-    { if (blockio_read(srcf,sblk,N-M)==EOF) 
+    { if (blockio_read(srcf,sblk,gm.dim.N-gm.dim.M)==EOF) 
       { fprintf(stderr,"Warning: Not enough source blocks (only %d)\n",n);
         seof = 1;
       }
@@ -180,15 +181,15 @@ int main
     if (gen_file!=0)
     { srcerr = 0;
       if (source_file!=0 && !seof)
-      { for (i = M; i<N; i++)
-        { if (cblk[cols[i]]!=sblk[i-M])
+      { for (i = gm.dim.M; i<gm.dim.N; i++)
+        { if (cblk[gm.cols[i]]!=sblk[i-gm.dim.M])
           { srcerr += 1;
           }
         }
       }
       if (source_file==0)
-      { for (i = M; i<N; i++)
-        { if (cblk[cols[i]]!=0)
+      { for (i = gm.dim.M; i<gm.dim.N; i++)
+        { if (cblk[gm.cols[i]]!=0)
           { srcerr += 1;
           }
         }
@@ -227,7 +228,7 @@ int main
       n, tot_chkerrs, tot_srcerrs, tot_botherrs);
     fprintf(stderr,
      "Bit error rate (on message bits only): %.3e\n", 
-      (double)bit_errs/(n*(N-M)));
+      (double)bit_errs/(n*(gm.dim.N-gm.dim.M)));
   }
   else
   { fprintf (stderr, 

@@ -19,7 +19,6 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <math.h>
 
 #include "alloc.h"
 #include "intio.h"
@@ -974,6 +973,9 @@ int mod2sparse_decomp
   M = mod2sparse_rows(A);
   N = mod2sparse_cols(A);
 
+  rcnt = NULL;
+  e = NULL;
+
   if (mod2sparse_cols(L)!=K || mod2sparse_rows(L)!=M
    || mod2sparse_cols(U)!=N || mod2sparse_rows(U)!=K)
   { fprintf (stderr,
@@ -1020,6 +1022,8 @@ int mod2sparse_decomp
  
   /* Find L and U one column at a time. */
 
+  cc = 0;
+  pr = 0;
   nnf = 0;
 
   for (i = 0; i<K; i++)

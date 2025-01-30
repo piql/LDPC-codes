@@ -7,6 +7,6 @@
 for e in `ls ex-* | grep -v "\\." | grep -v .-out` 
 do 
   echo Running $e:
-  $e 2>&1 | diff ${e}-out -
+  ./$e 2>&1 | diff ${e}-out -
   echo " "
 done

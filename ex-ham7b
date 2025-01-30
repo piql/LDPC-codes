@@ -11,11 +11,11 @@
 set -e  # Stop if an error occurs
 set -v  # Echo commands as they are read
   
-make-pchk ex-ham7b.pchk 3 7 0:0 0:3 0:4 0:5 1:1 1:3 1:4 1:6 2:2 2:4 2:5 2:6
-make-gen  ex-ham7b.pchk ex-ham7b.gen dense
-rand-src  ex-ham7b.src 1 4x1000
-encode    ex-ham7b.pchk ex-ham7b.gen ex-ham7b.src ex-ham7b.enc
-transmit  ex-ham7b.enc ex-ham7b.rec 1 bsc 0.05
-decode    ex-ham7b.pchk ex-ham7b.rec ex-ham7b.dec bsc 0.05 enum-bit ex-ham7b.gen
-verify    ex-ham7b.pchk ex-ham7b.dec ex-ham7b.gen ex-ham7b.src
-extract   ex-ham7b.gen ex-ham7b.dec ex-ham7b.ext
+./make-pchk ex-ham7b.pchk 3 7 0:0 0:3 0:4 0:5 1:1 1:3 1:4 1:6 2:2 2:4 2:5 2:6
+./make-gen  ex-ham7b.pchk ex-ham7b.gen dense
+./rand-src  ex-ham7b.src 1 4x1000
+./encode    ex-ham7b.pchk ex-ham7b.gen ex-ham7b.src ex-ham7b.enc
+./transmit  ex-ham7b.enc ex-ham7b.rec 1 bsc 0.05
+./decode    ex-ham7b.pchk ex-ham7b.rec ex-ham7b.dec bsc 0.05 enum-bit ex-ham7b.gen
+./verify    ex-ham7b.pchk ex-ham7b.dec ex-ham7b.gen ex-ham7b.src
+./extract   ex-ham7b.gen ex-ham7b.dec ex-ham7b.ext

@@ -15,26 +15,21 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 
-#include "rand.h"
 #include "alloc.h"
 #include "mod2sparse.h"
 #include "mod2dense.h"
-#include "mod2convert.h"
 #include "rcode.h"
 #include "enc.h"
-
-
-/* The procedures in this module obtain the generator matrix to use for
-   encoding from the global variables declared in rcode.h */
 
 
 /* ENCODE A BLOCK USING A SPARSE REPRESENTATION OF THE GENERATOR MATRIX. */
 
 void sparse_encode
 ( char *sblk,
-  char *cblk
+  char *cblk,
+  mod2sparse *H,		/* Parity check matrix */
+  gen_matrix *gm		/* Generator matrix */
 )
 {
   int i, j;
@@ -42,20 +37,20 @@ void sparse_encode
   mod2entry *e;
   char *x, *y;
 
-  x = chk_alloc (M, sizeof *x);
-  y = chk_alloc (M, sizeof *y);
+  x = chk_alloc (gm->dim.M, sizeof *x);
+  y = chk_alloc (gm->dim.M, sizeof *y);
 
   /* Multiply the vector of source bits by the systematic columns of the 
      parity check matrix, giving x.  Also copy these bits to the coded block. */
 
-  for (i = 0; i<M; i++) x[i] = 0;
+  for (i = 0; i<gm->dim.M; i++) x[i] = 0;
 
-  for (j = M; j<N; j++)
+  for (j = gm->dim.M; j<gm->dim.N; j++)
   { 
-    cblk[cols[j]] = sblk[j-M];
+    cblk[gm->cols[j]] = sblk[j-gm->dim.M];
 
-    if (sblk[j-M]==1)
-    { for (e = mod2sparse_first_in_col(H,cols[j]);
+    if (sblk[j-gm->dim.M]==1)
+    { for (e = mod2sparse_first_in_col(H,gm->cols[j]);
            !mod2sparse_at_end(e);
            e = mod2sparse_next_in_col(e))
       { x[mod2sparse_row(e)] ^= 1;
@@ -66,8 +61,8 @@ void sparse_encode
   /* Solve Ly=x for y by forward substitution, then U(cblk)=y by backward
      substitution. */
 
-  if (!mod2sparse_forward_sub(L,rows,x,y)
-   || !mod2sparse_backward_sub(U,cols,y,cblk))
+  if (!mod2sparse_forward_sub(gm->data.sparse.L,gm->data.sparse.rows,x,y)
+   || !mod2sparse_backward_sub(gm->data.sparse.U,gm->cols,y,cblk))
   { 
     abort(); /* Shouldn't occur, even if the parity check matrix has 
                 redundant rows */
@@ -84,29 +79,30 @@ void dense_encode
 ( char *sblk,
   char *cblk,
   mod2dense *u,
-  mod2dense *v
+  mod2dense *v,
+  gen_matrix *gm /* Generator matrix */
 )
 {
   int j;
 
   /* Copy source bits to the systematic part of the coded block. */
 
-  for (j = M; j<N; j++) 
-  { cblk[cols[j]] = sblk[j-M];
+  for (j = gm->dim.M; j<gm->dim.N; j++) 
+  { cblk[gm->cols[j]] = sblk[j-gm->dim.M];
   }
 
   /* Multiply by Inv(A) X B to produce check bits. */
 
-  for (j = M; j<N; j++)
-  { mod2dense_set(u,j-M,0,sblk[j-M]); 
+  for (j = gm->dim.M; j<gm->dim.N; j++)
+  { mod2dense_set(u,j-gm->dim.M,0,sblk[j-gm->dim.M]); 
   }
   
-  mod2dense_multiply(G,u,v);
+  mod2dense_multiply(gm->data.G,u,v);
 
   /* Copy check bits to the right places in the coded block. */
 
-  for (j = 0; j<M; j++)
-  { cblk[cols[j]] = mod2dense_get(v,j,0);
+  for (j = 0; j<gm->dim.M; j++)
+  { cblk[gm->cols[j]] = mod2dense_get(v,j,0);
   }
 }
 
@@ -117,7 +113,9 @@ void mixed_encode
 ( char *sblk,
   char *cblk,
   mod2dense *u,
-  mod2dense *v
+  mod2dense *v,
+  mod2sparse *H, /* Parity check matrix */
+  gen_matrix *gm /* Generator matrix */
 )
 {
   mod2entry *e;
@@ -129,12 +127,12 @@ void mixed_encode
 
   mod2dense_clear(u);
 
-  for (j = M; j<N; j++)
+  for (j = gm->dim.M; j<gm->dim.N; j++)
   { 
-    cblk[cols[j]] = sblk[j-M];
+    cblk[gm->cols[j]] = sblk[j-gm->dim.M];
 
-    if (sblk[j-M]==1)
-    { for (e = mod2sparse_first_in_col(H,cols[j]);
+    if (sblk[j-gm->dim.M]==1)
+    { for (e = mod2sparse_first_in_col(H,gm->cols[j]);
            !mod2sparse_at_end(e);
            e = mod2sparse_next_in_col(e))
       { (void) mod2dense_flip(u,mod2sparse_row(e),0);
@@ -144,11 +142,11 @@ void mixed_encode
 
   /* Multiply by Inv(A) to produce check bits. */
 
-  mod2dense_multiply(G,u,v);
+  mod2dense_multiply(gm->data.G,u,v);
 
   /* Copy check bits to the right places in the coded block. */
 
-  for (j = 0; j<M; j++)
-  { cblk[cols[j]] = mod2dense_get(v,j,0);
+  for (j = 0; j<gm->dim.M; j++)
+  { cblk[gm->cols[j]] = mod2dense_get(v,j,0);
   }
 }

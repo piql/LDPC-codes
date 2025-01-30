@@ -16,15 +16,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
-#include "rand.h"
 #include "alloc.h"
 #include "blockio.h"
 #include "open.h"
 #include "mod2sparse.h"
 #include "mod2dense.h"
-#include "mod2convert.h"
 #include "rcode.h"
 #include "enc.h"
 
@@ -45,6 +42,9 @@ int main
   FILE *srcf, *encf;
   char *sblk, *cblk, *chks;
   int i, n;
+
+  mod2sparse *H;
+  gen_matrix gm;
 
   /* Look at initial flag arguments. */
 
@@ -83,29 +83,34 @@ int main
 
   /* Read parity check file */
 
-  read_pchk(pchk_file);
+  H = read_pchk(pchk_file, &gm.dim);
 
-  if (N<=M)
+  if (gm.dim.N<=gm.dim.M)
   { fprintf(stderr,
  "Can't encode if number of bits (%d) not greater than number of checks (%d)\n",
-      N,M);
+      gm.dim.N,gm.dim.M);
     exit(1);
   }
 
   /* Read generator matrix file. */
 
-  read_gen(gen_file,0,0);
+  read_gen(gen_file,0,0, &gm);
 
   /* Allocate needed space. */
 
-  if (type=='d')
-  { u = mod2dense_allocate(N-M,1);
-    v = mod2dense_allocate(M,1);
+  if (gm.type=='d')
+  { u = mod2dense_allocate(gm.dim.N-gm.dim.M,1);
+    v = mod2dense_allocate(gm.dim.M,1);
   }
 
-  if (type=='m')
-  { u = mod2dense_allocate(M,1);
-    v = mod2dense_allocate(M,1);
+  else if (gm.type=='m')
+  { u = mod2dense_allocate(gm.dim.M,1);
+    v = mod2dense_allocate(gm.dim.M,1);
+  }
+
+  else
+  { u = NULL;
+    v = NULL;
   }
 
   /* Open source file. */
@@ -124,9 +129,9 @@ int main
     exit(1);
   }
 
-  sblk = chk_alloc (N-M, sizeof *sblk);
-  cblk = chk_alloc (N, sizeof *cblk);
-  chks = chk_alloc (M, sizeof *chks);
+  sblk = chk_alloc (gm.dim.N-gm.dim.M, sizeof *sblk);
+  cblk = chk_alloc (gm.dim.N, sizeof *cblk);
+  chks = chk_alloc (gm.dim.M, sizeof *chks);
 
   /* Encode successive blocks. */
 
@@ -134,23 +139,23 @@ int main
   { 
     /* Read block from source file. */
 
-    if (blockio_read(srcf,sblk,N-M)==EOF) 
+    if (blockio_read(srcf,sblk,gm.dim.N-gm.dim.M)==EOF) 
     { break;
     }
 
     /* Compute encoded block. */
 
-    switch (type)
+    switch (gm.type)
     { case 's':
-      { sparse_encode (sblk, cblk);
+      { sparse_encode (sblk, cblk, H, &gm);
         break;
       }
       case 'd':
-      { dense_encode (sblk, cblk, u, v);
+      { dense_encode (sblk, cblk, u, v, &gm);
         break;
       }
       case 'm':
-      { mixed_encode (sblk, cblk, u, v);
+      { mixed_encode (sblk, cblk, u, v, H, &gm);
         break;
       }
     }
@@ -159,7 +164,7 @@ int main
 
     mod2sparse_mulvec (H, cblk, chks);
 
-    for (i = 0; i<M; i++) 
+    for (i = 0; i<gm.dim.M; i++) 
     { if (chks[i]==1)
       { fprintf(stderr,"Output block %d is not a code word!  (Fails check %d)\n",n,i);
         abort(); 
@@ -168,14 +173,14 @@ int main
 
     /* Write encoded block to encoded output file. */
 
-    blockio_write(encf,cblk,N);
+    blockio_write(encf,cblk,gm.dim.N);
     if (ferror(encf))
     { break;
     }
   }
 
   fprintf(stderr,
-    "Encoded %d blocks, source block size %d, encoded block size %d\n",n,N-M,N);
+    "Encoded %d blocks, source block size %d, encoded block size %d\n",n,gm.dim.N-gm.dim.M,gm.dim.N);
 
   if (ferror(encf) || fclose(encf)!=0)
   { fprintf(stderr,"Error writing encoded blocks to %s\n",encoded_file);

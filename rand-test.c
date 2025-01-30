@@ -44,7 +44,6 @@ most programming errors.
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <math.h>
 
 #include "rand.h"
 
@@ -78,6 +77,8 @@ int main
   int i, n;
 
   bins = 0;
+  p1 = 0;
+  p2 = 0;
 
   if (argc<5) usage();
 

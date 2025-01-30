@@ -15,42 +15,22 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 
 #include "alloc.h"
 #include "intio.h"
 #include "open.h"
 #include "mod2sparse.h"
 #include "mod2dense.h"
-#include "mod2convert.h"
 #include "rcode.h"
 
 
-/* VARIABLES DECLARED IN RCODE.H.  These global variables are set to
-   representations of the parity check and generator matrices by read_pchk
-   and read_gen. */
-
-mod2sparse *H;		/* Parity check matrix */
-
-int M;			/* Number of rows in parity check matrix */
-int N;			/* Number of columns in parity check matrix */
-
-char type;		/* Type of generator matrix representation (s/d/m) */
-int *cols;		/* Ordering of columns in generator matrix */
-
-mod2sparse *L, *U;	/* Sparse LU decomposition, if type=='s' */
-int *rows;		/* Ordering of rows in generator matrix (type 's') */
-
-mod2dense *G;		/* Dense or mixed representation of generator matrix,
-			   if type=='d' or type=='m' */
-
-
-/* READ PARITY CHECK MATRIX.  Sets the H, M, and N global variables.  If an
+/* READ PARITY CHECK MATRIX. If an
    error is encountered, a message is displayed on standard error, and the
    program is terminated. */
 
-void read_pchk
-( char *pchk_file
+mod2sparse *read_pchk
+( char *pchk_file,
+  pchk_dimensions *dim /* (out) Parity check matrix dimensions (rows, columns) */
 )
 {
   FILE *f;
@@ -66,28 +46,27 @@ void read_pchk
     exit(1);
   }
 
-  H = mod2sparse_read(f);
+  mod2sparse *H = mod2sparse_read(f);
 
   if (H==0)
   { fprintf(stderr,"Error reading parity check matrix from %s\n",pchk_file);
     exit(1);
   }
 
-  M = mod2sparse_rows(H);
-  N = mod2sparse_cols(H);
+  dim->M = mod2sparse_rows(H);
+  dim->N = mod2sparse_cols(H);
 
   fclose(f);
+  return H;
 }
 
 
-/* READ GENERATOR MATRIX.  The parity check matrix must have already been 
-   read, unless the last argument is set to 1.  The generator matrix must be 
-   compatible with the parity check matrix, if it has been read.  If the 
+/* READ GENERATOR MATRIX. The generator matrix must be 
+   compatible with the parity check matrix dimensions.  If the 
    second argument is 1, only the column ordering (the last N-M of which are 
-   the indexes of the message bits) is read, into the 'cols' global variable.  
-   Otherwise, everything is read, into the global variables appropriate
-   to the representation.  The 'type' global variable is set to a letter
-   indicating which represention is used. 
+   the indexes of the message bits) is read, into 'cols' .
+   Otherwise, everything is read, into gm.  'type' is set to a letter
+   indicating which represention is used.
 
    If an error is encountered, a message is displayed on standard error,
    and the program is terminated. */
@@ -95,7 +74,8 @@ void read_pchk
 void read_gen
 ( char *gen_file,	/* Name of generator matrix file */
   int cols_only,	/* Read only column ordering? */
-  int no_pchk_file	/* No parity check file used? */
+  int no_pchk_file,	/* No parity check file used? */
+  gen_matrix *gm /* Generator matrix. Dimensions must be set unles no_pchk_file is 1 */
 )
 {
   int M2, N2;
@@ -113,7 +93,7 @@ void read_gen
     exit(1);
   }
 
-  if (fread (&type, 1, 1, f) != 1) goto error;
+  if (fread (&gm->type, 1, 1, f) != 1) goto error;
 
   M2 = intio_read(f);
   N2 = intio_read(f);
@@ -121,59 +101,59 @@ void read_gen
   if (feof(f) || ferror(f)) goto error;
 
   if (no_pchk_file)
-  { M = M2;
-    N = N2;
+  { gm->dim.M = M2;
+    gm->dim.N = N2;
   }
   else 
-  { if (M2!=M || N2!=N)
+  { if (M2!=gm->dim.M || N2!=gm->dim.N)
     { fprintf(stderr,
               "Generator matrix and parity-check matrix are incompatible\n");
       exit(1);
     }
   }
 
-  cols = chk_alloc (N, sizeof *cols);
-  rows = chk_alloc (M, sizeof *rows);
+  gm->cols = chk_alloc (gm->dim.N, sizeof *gm->cols);
+  gm->data.sparse.rows = chk_alloc (gm->dim.M, sizeof *(gm->data.sparse.rows));
 
-  for (i = 0; i<N; i++)
-  { cols[i] = intio_read(f);
+  for (i = 0; i<gm->dim.N; i++)
+  { gm->cols[i] = intio_read(f);
     if (feof(f) || ferror(f)) goto error;
   }
 
   if (!cols_only)
   {
-    switch (type)
+    switch (gm->type)
     {
       case 's':
       { 
-        for (i = 0; i<M; i++)
-        { rows[i] = intio_read(f);
+        for (i = 0; i<gm->dim.M; i++)
+        { gm->data.sparse.rows[i] = intio_read(f);
           if (feof(f) || ferror(f)) goto error;
         }
 
-        if ((L = mod2sparse_read(f)) == 0) goto error;
-        if ((U = mod2sparse_read(f)) == 0) goto error;
+        if ((gm->data.sparse.L = mod2sparse_read(f)) == 0) goto error;
+        if ((gm->data.sparse.U = mod2sparse_read(f)) == 0) goto error;
   
-        if (mod2sparse_rows(L)!=M || mod2sparse_cols(L)!=M) goto garbled;
-        if (mod2sparse_rows(U)!=M || mod2sparse_cols(U)<M) goto garbled;
+        if (mod2sparse_rows(gm->data.sparse.L)!=gm->dim.M || mod2sparse_cols(gm->data.sparse.L)!=gm->dim.M) goto garbled;
+        if (mod2sparse_rows(gm->data.sparse.U)!=gm->dim.M || mod2sparse_cols(gm->data.sparse.U)<gm->dim.M) goto garbled;
        
         break;
       }
   
       case 'd':
       {
-        if ((G = mod2dense_read(f)) == 0) goto error;
+        if ((gm->data.G = mod2dense_read(f)) == 0) goto error;
   
-        if (mod2dense_rows(G)!=M || mod2dense_cols(G)!=N-M) goto garbled;
+        if (mod2dense_rows(gm->data.G)!=gm->dim.M || mod2dense_cols(gm->data.G)!=gm->dim.N-gm->dim.M) goto garbled;
   
         break;
       }
   
       case 'm':
       {
-        if ((G = mod2dense_read(f)) == 0) goto error;
+        if ((gm->data.G = mod2dense_read(f)) == 0) goto error;
   
-        if (mod2dense_rows(G)!=M || mod2dense_cols(G)!=M) goto garbled;
+        if (mod2dense_rows(gm->data.G)!=gm->dim.M || mod2dense_cols(gm->data.G)!=gm->dim.M) goto garbled;
   
         break;
       }

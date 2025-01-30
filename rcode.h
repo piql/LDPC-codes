@@ -13,25 +13,45 @@
  * risk.
  */
 
+typedef struct
+{
+  int M; /* Number of rows in parity check matrix */
+  int N; /* Number of columns in parity check matrix */
+} pchk_dimensions;
+
+typedef struct
+{
+  pchk_dimensions dim;
+  char type; /* Type of generator matrix representation (s/d/m) */
+  int *cols; /* Ordering of columns in generator matrix */
+  union {
+    struct {
+      mod2sparse *L; /* Sparse LU decomposition, if type=='s' */
+      mod2sparse *U; /* Sparse LU decomposition, if type=='s' */
+      int *rows; /* Ordering of rows in generator matrix (type 's') */
+    } sparse;
+    mod2dense *G; /* Dense or mixed represenation of generator matrix, if type=='d' or type=='m' */
+  } data;
+} gen_matrix;
 
 /* VARIABLES HOLDING DATA READ.  These are declared for real in rcode.c. */
 
-extern mod2sparse *H;	/* Parity check matrix */
+// extern mod2sparse *H;	/* Parity check matrix */
 
-extern int M;		/* Number of rows in parity check matrix */
-extern int N;		/* Number of columns in parity check matrix */
+// extern int M;		/* Number of rows in parity check matrix */
+// extern int N;		/* Number of columns in parity check matrix */
 
-extern char type;	/* Type of generator matrix representation */
-extern int *cols;	/* Ordering of columns in generator matrix */
+// extern char type;	/* Type of generator matrix representation */
+// extern int *cols;	/* Ordering of columns in generator matrix */
 
-extern mod2sparse *L, *U; /* Sparse LU decomposition, if type=='s' */
-extern int *rows;	  /* Ordering of rows in generator matrix (type 's') */
+// extern mod2sparse *L, *U; /* Sparse LU decomposition, if type=='s' */
+// extern int *rows;	  /* Ordering of rows in generator matrix (type 's') */
 
-extern mod2dense *G;	/* Dense or mixed representation of generator matrix,
-			   if type=='d' or type=='m' */
+// extern mod2dense *G;	/* Dense or mixed representation of generator matrix,
+// 			   if type=='d' or type=='m' */
 
 
 /* PROCEDURES FOR READING DATA. */
 
-void read_pchk (char *);
-void read_gen  (char *, int, int);
+mod2sparse *read_pchk (char *, pchk_dimensions *dim);
+void read_gen  (char *, int, int, gen_matrix *gm);

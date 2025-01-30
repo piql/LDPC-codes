@@ -30,9 +30,10 @@ tests = mod2dense-test mod2sparse-test mod2convert-test rand-test
 
 tests: $(tests)
 
-CFLAGS += -Wall -Wno-maybe-uninitialized
+CFLAGS += -Wall -Wextra -Wpedantic -Wmissing-prototypes
 CFLAGS += -O2
 CFLAGS += -g
+CFLAGS += -std=c99
 LOADLIBES += -lm
 
 ofiles = alloc.o blockio.o channel.o check.o dec.o distrib.o enc.o	\

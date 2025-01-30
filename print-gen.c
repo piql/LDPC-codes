@@ -16,11 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
-#include "rand.h"
-#include "alloc.h"
-#include "open.h"
 #include "mod2sparse.h"
 #include "mod2dense.h"
 #include "mod2convert.h"
@@ -40,6 +36,8 @@ int main
   int dprint;
   int i, j;
 
+  gen_matrix gm;
+
   dprint = 0;
   if (argc>1 && strcmp(argv[1],"-d")==0)
   { dprint = 1;
@@ -51,34 +49,34 @@ int main
   { usage();
   }
 
-  read_gen(gen_file,0,1);
+  read_gen(gen_file,0,1, &gm);
 
-  switch (type)
+  switch (gm.type)
   {
     case 's': 
     { 
       printf("\nGenerator matrix in %s (sparse representation):\n\n",gen_file);
 
       printf("Column order (message bits at end):\n");
-      for (j = 0; j<N; j++) 
+      for (j = 0; j<gm.dim.N; j++) 
       { if (j%20==0) printf("\n");
-        printf(" %3d",cols[j]);
+        printf(" %3d",gm.cols[j]);
       }
       printf("\n\n");
 
       printf("Row order:\n");
-      for (i = 0; i<M; i++) 
+      for (i = 0; i<gm.dim.M; i++) 
       { if (i%20==0) printf("\n");
-        printf(" %3d",rows[i]); 
+        printf(" %3d",gm.data.sparse.rows[i]); 
       }
       printf("\n\n");
 
       if (dprint)
       { mod2dense *Ld, *Ud;
-        Ld = mod2dense_allocate(M,M);
-        Ud = mod2dense_allocate(M,N);
-        mod2sparse_to_dense(L,Ld);
-        mod2sparse_to_dense(U,Ud);
+        Ld = mod2dense_allocate(gm.dim.M,gm.dim.M);
+        Ud = mod2dense_allocate(gm.dim.M,gm.dim.N);
+        mod2sparse_to_dense(gm.data.sparse.L,Ld);
+        mod2sparse_to_dense(gm.data.sparse.U,Ud);
         printf("L:\n\n");
         mod2dense_print(stdout,Ld);
         printf("\n");
@@ -88,10 +86,10 @@ int main
       }
       else
       { printf("L:\n\n");
-        mod2sparse_print(stdout,L);
+        mod2sparse_print(stdout,gm.data.sparse.L);
         printf("\n");
         printf("U:\n\n");
-        mod2sparse_print(stdout,U);
+        mod2sparse_print(stdout,gm.data.sparse.U);
         printf("\n");
       }
      
@@ -100,22 +98,22 @@ int main
 
     case 'd': case 'm':
     {
-      if (type=='d')
+      if (gm.type=='d')
       { printf("\nGenerator matrix in %s (dense representation):\n\n",gen_file);
       }
-      if (type=='m')
+      if (gm.type=='m')
       { printf("\nGenerator matrix in %s (mixed representation):\n\n",gen_file);
       }
 
       printf("Column order (message bits at end):\n");
-      for (j = 0; j<N; j++) 
+      for (j = 0; j<gm.dim.N; j++) 
       { if (j%20==0) printf("\n");
-        printf(" %3d",cols[j]);
+        printf(" %3d",gm.cols[j]);
       }
       printf("\n\n");
 
-      printf (type=='d' ? "Inv(A) X B:\n\n" : "Inv(A):\n\n");
-      mod2dense_print(stdout,G);
+      printf (gm.type=='d' ? "Inv(A) X B:\n\n" : "Inv(A):\n\n");
+      mod2dense_print(stdout,gm.data.G);
       printf("\n");
 
       break;

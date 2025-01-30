@@ -16,13 +16,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
 #include "alloc.h"
 #include "open.h"
 #include "mod2sparse.h"
 #include "mod2dense.h"
-#include "mod2convert.h"
 #include "rcode.h"
 
 
@@ -45,6 +43,9 @@ int main
   int trans;
   int nozeros;
   int last;
+
+  mod2sparse *H;
+  pchk_dimensions dim;
 
   trans = 0;
   nozeros = 0;
@@ -73,15 +74,15 @@ int main
   pchk_file = argv[1];
   alist_file = argv[2];
 
-  read_pchk(pchk_file);
+  H = read_pchk(pchk_file, &dim);
 
   if (trans)
   { mod2sparse *HT;
     HT = H;
-    H = mod2sparse_allocate(N,M);
+    H = mod2sparse_allocate(dim.N,dim.M);
     mod2sparse_transpose(HT,H);
-    M = mod2sparse_rows(H);
-    N = mod2sparse_cols(H);
+    dim.M = mod2sparse_rows(H);
+    dim.N = mod2sparse_cols(H);
   }
 
   af = open_file_std(alist_file,"wb");
@@ -91,22 +92,22 @@ int main
     exit(1);
   }
 
-  fprintf(af,"%d %d\n",M,N);
+  fprintf(af,"%d %d\n",dim.M,dim.N);
 
-  rw = (int *) chk_alloc (M, sizeof *rw);
+  rw = (int *) chk_alloc (dim.M, sizeof *rw);
   mxrw = 0;
 
-  for (i = 0; i<M; i++)
+  for (i = 0; i<dim.M; i++)
   { rw[i] = mod2sparse_count_row(H,i);
     if (rw[i]>mxrw)
     { mxrw = rw[i];
     }
   }
 
-  cw = (int *) chk_alloc (N, sizeof *cw);
+  cw = (int *) chk_alloc (dim.N, sizeof *cw);
   mxcw = 0;
 
-  for (j = 0; j<N; j++)
+  for (j = 0; j<dim.N; j++)
   { cw[j] = mod2sparse_count_col(H,j);
     if (cw[j]>mxcw)
     { mxcw = cw[j];
@@ -115,15 +116,15 @@ int main
 
   fprintf(af,"%d %d\n",mxrw,mxcw);
 
-  for (i = 0; i<M; i++)
-  { fprintf(af,"%d%c",rw[i],i==M-1?'\n':' ');
+  for (i = 0; i<dim.M; i++)
+  { fprintf(af,"%d%c",rw[i],i==dim.M-1?'\n':' ');
   }
 
-  for (j = 0; j<N; j++)
-  { fprintf(af,"%d%c",cw[j],j==N-1?'\n':' ');
+  for (j = 0; j<dim.N; j++)
+  { fprintf(af,"%d%c",cw[j],j==dim.N-1?'\n':' ');
   }
 
-  for (i = 0; i<M; i++)
+  for (i = 0; i<dim.M; i++)
   { e = mod2sparse_first_in_row(H,i);
     last = 0;
     for (k = 0; !last; k++)
@@ -136,7 +137,7 @@ int main
     }
   }
 
-  for (j = 0; j<N; j++)
+  for (j = 0; j<dim.N; j++)
   { e = mod2sparse_first_in_col(H,j);
     last = 0;
     for (k = 0; !last; k++)

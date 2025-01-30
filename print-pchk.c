@@ -16,11 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
-#include "rand.h"
-#include "alloc.h"
-#include "open.h"
 #include "mod2sparse.h"
 #include "mod2dense.h"
 #include "mod2convert.h"
@@ -41,6 +37,9 @@ int main
 
   char *pchk_file;
   int dprint, trans;
+
+  mod2sparse *H;
+  pchk_dimensions dim;
 
   dprint = 0;
   trans = 0;
@@ -66,23 +65,23 @@ int main
   { usage();
   }
 
-  read_pchk(pchk_file);
+  H = read_pchk(pchk_file, &dim);
 
   if (trans)
-  { T = mod2sparse_allocate(N,M);
+  { T = mod2sparse_allocate(dim.N,dim.M);
     mod2sparse_transpose(H,T);
   }
 
   if (dprint)
   { if (trans)
-    { D = mod2dense_allocate(N,M);
+    { D = mod2dense_allocate(dim.N,dim.M);
       mod2sparse_to_dense(T,D);
       printf("\nTranspose of parity check matrix in %s (dense format):\n\n",
              pchk_file);
       mod2dense_print(stdout,D);
     }
     else
-    { D = mod2dense_allocate(M,N);
+    { D = mod2dense_allocate(dim.M,dim.N);
       mod2sparse_to_dense(H,D);
       printf("\nParity check matrix in %s (dense format):\n\n",pchk_file);
       mod2dense_print(stdout,D);

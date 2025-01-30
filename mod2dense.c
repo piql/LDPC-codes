@@ -19,7 +19,6 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <math.h>
 
 #include "alloc.h"
 #include "intio.h"
@@ -582,6 +581,9 @@ int mod2dense_invert_selected
   w = m->n_words;
 
   n2 = mod2dense_cols(m);
+
+  k0 = 0;
+  b0 = 0;
 
   if (mod2dense_rows(r)!=n || mod2dense_cols(r)!=n2)
   { fprintf(stderr,

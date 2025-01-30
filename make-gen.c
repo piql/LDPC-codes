@@ -15,7 +15,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 #include <string.h>
 
 #include "alloc.h"
@@ -28,8 +27,8 @@
 
 typedef enum { Sparse, Dense, Mixed } make_method;      /* Ways of making it */
 
-void make_dense_mixed (FILE *, make_method, char *);     /* Procs to make it */
-void make_sparse (FILE *, mod2sparse_strategy, int, int);
+void make_dense_mixed (FILE *, make_method, char *, mod2sparse *H, gen_matrix *gm);     /* Procs to make it */
+void make_sparse (FILE *, mod2sparse_strategy, int, int, mod2sparse *H, gen_matrix *gm);
 void usage(void);
 
 
@@ -48,8 +47,15 @@ int main
   char junk;
   FILE *f;
 
+  mod2sparse *H;
+  gen_matrix gm;
+
+  strategy = Mod2sparse_first;
+  other_gen_file = NULL;
+
   /* Look at arguments. */
 
+  (void)argc;
   if (!(pchk_file = argv[1])
    || !(gen_file = argv[2])
    || !(meth = argv[3]))
@@ -97,11 +103,11 @@ int main
 
   /* Read parity check matrix. */
 
-  read_pchk(pchk_file);
+  H = read_pchk(pchk_file, &gm.dim);
 
-  if (N<=M)
+  if (gm.dim.N<=gm.dim.M)
   { fprintf(stderr,
-     "Can't encode if number of bits (%d) isn't greater than number of checks (%d)\n",N,M);
+     "Can't encode if number of bits (%d) isn't greater than number of checks (%d)\n",gm.dim.N,gm.dim.M);
     exit(1);
   }
 
@@ -115,18 +121,18 @@ int main
 
   /* Allocate space for row and column permutations. */
 
-  cols = chk_alloc (N, sizeof *cols);
-  rows = chk_alloc (M, sizeof *rows);
+  gm.cols = chk_alloc (gm.dim.N, sizeof *gm.cols);
+  gm.data.sparse.rows = chk_alloc (gm.dim.M, sizeof gm.data.sparse.rows);
 
   /* Create generator matrix with specified method. */
 
   switch (method)
   { case Sparse: 
-    { make_sparse(f,strategy,abandon_number,abandon_when); 
+    { make_sparse(f,strategy,abandon_number,abandon_when, H, &gm); 
       break;
     }
     case Dense: case Mixed:
-    { make_dense_mixed(f,method,other_gen_file);
+    { make_dense_mixed(f,method,other_gen_file, H, &gm);
       break;
     }
     default: abort();
@@ -148,17 +154,19 @@ int main
 void make_dense_mixed
 ( FILE *f,
   make_method method,
-  char *other_gen_file
+  char *other_gen_file,
+  mod2sparse *H, /* Parity check matrix */
+  gen_matrix *gm /* Generator matrix */
 )
 { 
   mod2dense *DH, *A, *A2, *AI, *B;
   int i, j, c, c2, n;
   int *rows_inv;
 
-  DH = mod2dense_allocate(M,N);
-  AI = mod2dense_allocate(M,M);
-  B  = mod2dense_allocate(M,N-M);
-  G  = mod2dense_allocate(M,N-M);
+  DH = mod2dense_allocate(gm->dim.M,gm->dim.N);
+  AI = mod2dense_allocate(gm->dim.M,gm->dim.M);
+  B  = mod2dense_allocate(gm->dim.M,gm->dim.N-gm->dim.M);
+  gm->data.G  = mod2dense_allocate(gm->dim.M,gm->dim.N-gm->dim.M);
 
   mod2sparse_to_dense(H,DH);
 
@@ -167,10 +175,10 @@ void make_dense_mixed
 
   if (other_gen_file)
   { 
-    read_gen(other_gen_file,1,0);
+    read_gen(other_gen_file,1,0, gm);
 
-    A = mod2dense_allocate(M,M);
-    mod2dense_copycols(DH,A,cols);
+    A = mod2dense_allocate(gm->dim.M,gm->dim.M);
+    mod2dense_copycols(DH,A,gm->cols);
 
     if (!mod2dense_invert(A,AI))
     { fprintf(stderr,
@@ -178,7 +186,7 @@ void make_dense_mixed
       exit(1);
     }
 
-    mod2dense_copycols(DH,B,cols+M);
+    mod2dense_copycols(DH,B,gm->cols+gm->dim.M);
   }
 
   /* If no other generator matrix was specified, invert using whatever 
@@ -186,36 +194,36 @@ void make_dense_mixed
 
   if (!other_gen_file)
   {
-    A  = mod2dense_allocate(M,N);
-    A2 = mod2dense_allocate(M,N);
+    A  = mod2dense_allocate(gm->dim.M,gm->dim.N);
+    A2 = mod2dense_allocate(gm->dim.M,gm->dim.N);
 
-    n = mod2dense_invert_selected(DH,A2,rows,cols);
+    n = mod2dense_invert_selected(DH,A2,gm->data.sparse.rows,gm->cols);
     mod2sparse_to_dense(H,DH);  /* DH was destroyed by invert_selected */
 
     if (n>0)
     { fprintf(stderr,"Note: Parity check matrix has %d redundant checks\n",n);
     }
 
-    rows_inv = chk_alloc (M, sizeof *rows_inv);
+    rows_inv = chk_alloc (gm->dim.M, sizeof *rows_inv);
 
-    for (i = 0; i<M; i++)
-    { rows_inv[rows[i]] = i;
+    for (i = 0; i<gm->dim.M; i++)
+    { rows_inv[gm->data.sparse.rows[i]] = i;
     }
 
-    mod2dense_copyrows(A2,A,rows);
-    mod2dense_copycols(A,A2,cols);
+    mod2dense_copyrows(A2,A,gm->data.sparse.rows);
+    mod2dense_copycols(A,A2,gm->cols);
     mod2dense_copycols(A2,AI,rows_inv);
 
-    mod2dense_copycols(DH,B,cols+M);
+    mod2dense_copycols(DH,B,gm->cols+gm->dim.M);
   }
 
   /* Form final generator matrix. */
 
   if (method==Dense) 
-  { mod2dense_multiply(AI,B,G);
+  { mod2dense_multiply(AI,B,gm->data.G);
   }
   else if (method==Mixed)
-  { G = AI;
+  { gm->data.G = AI;
   }
   else
   { abort();
@@ -225,29 +233,29 @@ void make_dense_mixed
 
   if (method==Dense)  
   { c = 0;
-    for (i = 0; i<M; i++)
-    { for (j = 0; j<N-M; j++)
-      { c += mod2dense_get(G,i,j);
+    for (i = 0; i<gm->dim.M; i++)
+    { for (j = 0; j<gm->dim.N-gm->dim.M; j++)
+      { c += mod2dense_get(gm->data.G,i,j);
       }
     }
     fprintf(stderr,
-      "Number of 1s per check in Inv(A) X B is %.1f\n", (double)c/M);
+      "Number of 1s per check in Inv(A) X B is %.1f\n", (double)c/gm->dim.M);
   }
 
   if (method==Mixed)
   { c = 0;
-    for (i = 0; i<M; i++)
-    { for (j = 0; j<M; j++)
-      { c += mod2dense_get(G,i,j);
+    for (i = 0; i<gm->dim.M; i++)
+    { for (j = 0; j<gm->dim.M; j++)
+      { c += mod2dense_get(gm->data.G,i,j);
       }
     }
     c2 = 0;
-    for (i = M; i<N; i++) 
-    { c2 += mod2sparse_count_col(H,cols[i]);
+    for (i = gm->dim.M; i<gm->dim.N; i++) 
+    { c2 += mod2sparse_count_col(H,gm->cols[i]);
     }
     fprintf(stderr,
      "Number of 1s per check in Inv(A) is %.1f, in B is %.1f, total is %.1f\n",
-     (double)c/M, (double)c2/M, (double)(c+c2)/M);
+     (double)c/gm->dim.M, (double)c2/gm->dim.M, (double)(c+c2)/gm->dim.M);
   }
 
   /* Write the represention of the generator matrix to the file. */
@@ -261,14 +269,14 @@ void make_dense_mixed
   { fwrite ("m", 1, 1, f);
   }
 
-  intio_write(f,M);
-  intio_write(f,N);
+  intio_write(f,gm->dim.M);
+  intio_write(f,gm->dim.N);
 
-  for (i = 0; i<N; i++) 
-  { intio_write(f,cols[i]);
+  for (i = 0; i<gm->dim.N; i++) 
+  { intio_write(f,gm->cols[i]);
   }
 
-  mod2dense_write (f, G);
+  mod2dense_write (f, gm->data.G);
 }
 
 
@@ -278,7 +286,9 @@ void make_sparse
 ( FILE *f,
   mod2sparse_strategy strategy,
   int abandon_number,
-  int abandon_when
+  int abandon_when,
+  mod2sparse *H, /* Parity check matrix */
+  gen_matrix *gm /* Generator matrix */
 )
 {
   int n, cL, cU, cB;
@@ -286,10 +296,10 @@ void make_sparse
 
   /* Find LU decomposition. */
 
-  L = mod2sparse_allocate(M,M);
-  U = mod2sparse_allocate(M,N);
+  gm->data.sparse.L = mod2sparse_allocate(gm->dim.M,gm->dim.M);
+  gm->data.sparse.U = mod2sparse_allocate(gm->dim.M,gm->dim.N);
 
-  n = mod2sparse_decomp(H,M,L,U,rows,cols,strategy,abandon_number,abandon_when);
+  n = mod2sparse_decomp(H,gm->dim.M,gm->data.sparse.L,gm->data.sparse.U,gm->data.sparse.rows,gm->cols,strategy,abandon_number,abandon_when);
 
   if (n!=0 && abandon_number==0)
   { fprintf(stderr,"Note: Parity check matrix has %d redundant checks\n",n);
@@ -306,13 +316,13 @@ void make_sparse
 
   cL = cU = cB = 0;
 
-  for (i = 0; i<M; i++) cL += mod2sparse_count_row(L,i);
-  for (i = 0; i<M; i++) cU += mod2sparse_count_row(U,i);
-  for (i = M; i<N; i++) cB += mod2sparse_count_col(H,cols[i]);
+  for (i = 0; i<gm->dim.M; i++) cL += mod2sparse_count_row(gm->data.sparse.L,i);
+  for (i = 0; i<gm->dim.M; i++) cU += mod2sparse_count_row(gm->data.sparse.U,i);
+  for (i = gm->dim.M; i<gm->dim.N; i++) cB += mod2sparse_count_col(H,gm->cols[i]);
 
   fprintf(stderr,
    "Number of 1s per check in L is %.1f, U is %.1f, B is %.1f, total is %.1f\n",
-    (double)cU/M, (double)cL/M, (double)cB/M, (double)(cL+cU+cB)/M);
+    (double)cU/gm->dim.M, (double)cL/gm->dim.M, (double)cB/gm->dim.M, (double)(cL+cU+cB)/gm->dim.M);
 
   /* Write it all to the generator matrix file. */
 
@@ -320,19 +330,19 @@ void make_sparse
 
   fwrite ("s", 1, 1, f);
 
-  intio_write(f,M);
-  intio_write(f,N);
+  intio_write(f,gm->dim.M);
+  intio_write(f,gm->dim.N);
 
-  for (i = 0; i<N; i++) 
-  { intio_write(f,cols[i]);
+  for (i = 0; i<gm->dim.N; i++) 
+  { intio_write(f,gm->cols[i]);
   }
 
-  for (i = 0; i<M; i++) 
-  { intio_write(f,rows[i]);
+  for (i = 0; i<gm->dim.M; i++) 
+  { intio_write(f,gm->data.sparse.rows[i]);
   }
 
-  mod2sparse_write (f, L);
-  mod2sparse_write (f, U);
+  mod2sparse_write (f, gm->data.sparse.L);
+  mod2sparse_write (f, gm->data.sparse.U);
 }
 
 

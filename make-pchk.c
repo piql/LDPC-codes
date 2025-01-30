@@ -15,15 +15,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <math.h>
 
-#include "alloc.h"
 #include "intio.h"
 #include "open.h"
 #include "mod2sparse.h"
 #include "mod2dense.h"
-#include "mod2convert.h"
 #include "rcode.h"
 
 
@@ -43,6 +39,11 @@ int main
   int i, j, k;
   char junk;
 
+  mod2sparse *H;
+  int M;
+  int N;
+
+  (void)argc;
   if (!(file = argv[1]) 
    || !argv[2] || sscanf(argv[2],"%d%c",&M,&junk)!=1 || M<=0
    || !argv[3] || sscanf(argv[3],"%d%c",&N,&junk)!=1 || N<=0)

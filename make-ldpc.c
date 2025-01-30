@@ -24,7 +24,6 @@
 #include "open.h"
 #include "mod2sparse.h"
 #include "mod2dense.h"
-#include "mod2convert.h"
 #include "rcode.h"
 #include "distrib.h"
 
@@ -37,7 +36,7 @@ typedef enum
 } make_method; 
 
 
-void make_ldpc (int, make_method, distrib *, int);
+void make_ldpc (int, make_method, distrib *, int, mod2sparse **H, int M, int N);
 int *column_partition (distrib *, int);
 void usage (void);
 
@@ -55,9 +54,14 @@ int main
   distrib *d;
   char junk;
   FILE *f;
+
+  mod2sparse *H;
+  int M;
+  int N;
   
   /* Look at initial arguments. */
 
+  (void)argc;
   if (!(file = argv[1])
    || !argv[2] || sscanf(argv[2],"%d%c",&M,&junk)!=1 || M<=0
    || !argv[3] || sscanf(argv[3],"%d%c",&N,&junk)!=1 || N<=0
@@ -115,7 +119,7 @@ int main
 
   /* Make the parity check matrix. */
 
-  make_ldpc(seed,method,d,no4cycle);
+  make_ldpc(seed,method,d,no4cycle,&H,M,N);
 
   /* Write out the parity check matrix. */
 
@@ -154,7 +158,10 @@ void make_ldpc
 ( int seed,		/* Random number seed */
   make_method method,	/* How to make it */
   distrib *d,		/* Distribution list specified */
-  int no4cycle		/* Eliminate cycles of length four? */
+  int no4cycle,		/* Eliminate cycles of length four? */
+  mod2sparse **H, /* (output parameter) Parity check matrix */
+  int M,		/* Number of rows in parity check matrix */
+  int N		/* Number of columns in parity check matrix */
 )
 {
   mod2entry *e, *f, *g, *h;
@@ -164,7 +171,7 @@ void make_ldpc
 
   rand_seed(10*seed+1);
 
-  H = mod2sparse_allocate(M,N);
+  *H = mod2sparse_allocate(M,N);
   part = column_partition(d,N);
 
   /* Create the initial version of the parity check matrix. */
@@ -187,8 +194,8 @@ void make_ldpc
         for (k = 0; k<distrib_num(d,z); k++)
         { do
           { i = rand_int(M);
-          } while (mod2sparse_find(H,i,j));
-          mod2sparse_insert(H,i,j);
+          } while (mod2sparse_find(*H,i,j));
+          mod2sparse_insert(*H,i,j);
         }
         left -= 1;
       }
@@ -226,20 +233,20 @@ void make_ldpc
 
 	for (k = 0; k<distrib_num(d,z); k++)
         { 
-          for (i = t; i<cb_N && mod2sparse_find(H,u[i],j); i++) ;
+          for (i = t; i<cb_N && mod2sparse_find(*H,u[i],j); i++) ;
 
           if (i==cb_N)
           { uneven += 1;
             do
             { i = rand_int(M);
-            } while (mod2sparse_find(H,i,j));
-            mod2sparse_insert(H,i,j);
+            } while (mod2sparse_find(*H,i,j));
+            mod2sparse_insert(*H,i,j);
           }
           else
           { do
             { i = t + rand_int(cb_N-t);
-            } while (mod2sparse_find(H,u[i],j));
-            mod2sparse_insert(H,u[i],j);
+            } while (mod2sparse_find(*H,u[i],j));
+            mod2sparse_insert(*H,u[i],j);
             u[i] = u[t];
             t += 1;
           }
@@ -263,18 +270,18 @@ void make_ldpc
   added = 0;
 
   for (i = 0; i<M; i++)
-  { e = mod2sparse_first_in_row(H,i);
+  { e = mod2sparse_first_in_row(*H,i);
     if (mod2sparse_at_end(e))
     { j = rand_int(N);
-      e = mod2sparse_insert(H,i,j);
+      e = mod2sparse_insert(*H,i,j);
       added += 1;
     }
-    e = mod2sparse_first_in_row(H,i);
+    e = mod2sparse_first_in_row(*H,i);
     if (mod2sparse_at_end(mod2sparse_next_in_row(e)) && N>1)
     { do 
       { j = rand_int(N); 
       } while (j==mod2sparse_col(e));
-      mod2sparse_insert(H,i,j);
+      mod2sparse_insert(*H,i,j);
       added += 1;
     }
   }
@@ -304,8 +311,8 @@ void make_ldpc
     { do
       { i = rand_int(M);
         j = rand_int(N);
-      } while (mod2sparse_find(H,i,j));
-      mod2sparse_insert(H,i,j);
+      } while (mod2sparse_find(*H,i,j));
+      mod2sparse_insert(*H,i,j);
     }
     fprintf(stderr,
  "Added %d extra bit-checks to try to avoid problems from even column counts\n",
@@ -321,26 +328,26 @@ void make_ldpc
     for (t = 0; t<10; t++) 
     { k = 0;
       for (j = 0; j<N; j++)
-      { for (e = mod2sparse_first_in_col(H,j);
+      { for (e = mod2sparse_first_in_col(*H,j);
              !mod2sparse_at_end(e);
              e = mod2sparse_next_in_col(e))
-        { for (f = mod2sparse_first_in_row(H,mod2sparse_row(e));
+        { for (f = mod2sparse_first_in_row(*H,mod2sparse_row(e));
                !mod2sparse_at_end(f);
                f = mod2sparse_next_in_row(f))
           { if (f==e) continue;
-            for (g = mod2sparse_first_in_col(H,mod2sparse_col(f));
+            for (g = mod2sparse_first_in_col(*H,mod2sparse_col(f));
                  !mod2sparse_at_end(g);
                  g = mod2sparse_next_in_col(g))
             { if (g==f) continue;
-              for (h = mod2sparse_first_in_row(H,mod2sparse_row(g));
+              for (h = mod2sparse_first_in_row(*H,mod2sparse_row(g));
                    !mod2sparse_at_end(h);
                    h = mod2sparse_next_in_row(h))
               { if (mod2sparse_col(h)==j)
                 { do
                   { i = rand_int(M);
-                  } while (mod2sparse_find(H,i,j));
-                  mod2sparse_delete(H,e);
-                  mod2sparse_insert(H,i,j);
+                  } while (mod2sparse_find(*H,i,j));
+                  mod2sparse_delete(*H,e);
+                  mod2sparse_insert(*H,i,j);
                   elim4 += 1;
                   k += 1;
                   goto nextj;

@@ -14,19 +14,12 @@
  */
 
 
-/* TYPES OF CHANNEL, AND CHANNEL PARAMETERS.  The global variables declared
-   here are located in channel.c. */
+/* TYPES OF CHANNEL */
 
 typedef enum { BSC, AWGN, AWLN , MISC} channel_type;
-
-extern channel_type channel;	/* Type of channel */
-
-extern double error_prob;	/* Error probability for BSC */
-extern double std_dev;		/* Noise standard deviation for AWGN */
-extern double lwidth;		/* Width of noise distributoin for AWLN */
 
 
 /* PROCEDURES TO DO WITH CHANNELS. */
 
-int  channel_parse (char **, int);
+int  channel_parse (char **, int, channel_type *channel, double *channel_data);
 void channel_usage (void);

@@ -15,7 +15,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 
 #include "open.h"
 #include "rand.h"
@@ -36,6 +35,7 @@ int main
   int i, j;
   FILE *f;
 
+  (void)argc;
   if (!(file = argv[1])
    || !argv[2] || sscanf(argv[2],"%d%c",&seed,&junk)!=1
    || !(n_bits = argv[3])

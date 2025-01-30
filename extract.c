@@ -16,14 +16,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
 #include "alloc.h"
 #include "blockio.h"
 #include "open.h"
 #include "mod2sparse.h"
 #include "mod2dense.h"
-#include "mod2convert.h"
 #include "rcode.h"
 
 void usage(void);
@@ -41,8 +39,11 @@ int main
   char *cblk;
   int i;
 
+  gen_matrix gm;
+
   /* Look at arguments. */
 
+  (void)argc;
   if (!(gen_file = argv[1])
    || !(coded_file = argv[2])
    || !(ext_file = argv[3])
@@ -58,7 +59,7 @@ int main
   /* Read generator matrix file, up to the point of finding out which
      are the message bits. */
   
-  read_gen(gen_file,1,1);
+  read_gen(gen_file,1,1,&gm);
 
   /* Open decoded file. */
 
@@ -76,19 +77,19 @@ int main
     exit(1);
   }
 
-  cblk = chk_alloc (N, sizeof *cblk);
+  cblk = chk_alloc (gm.dim.N, sizeof *cblk);
 
   for (;;)
   { 
     /* Read block from coded file. */
 
-    if (blockio_read(codef,cblk,N)==EOF) break;
+    if (blockio_read(codef,cblk,gm.dim.N)==EOF) break;
 
     /* Extract message bits and write to file, followed by newline to mark
        block boundary. */
 
-    for (i = M; i<N; i++)
-    { putc("01"[(int)cblk[cols[i]]],extf);
+    for (i = gm.dim.M; i<gm.dim.N; i++)
+    { putc("01"[(int)cblk[gm.cols[i]]],extf);
     }
    
     putc('\n',extf);

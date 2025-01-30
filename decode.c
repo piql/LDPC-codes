@@ -18,13 +18,11 @@
 #include <string.h>
 #include <math.h>
 
-#include "rand.h"
 #include "alloc.h"
 #include "blockio.h"
 #include "open.h"
 #include "mod2sparse.h"
 #include "mod2dense.h"
-#include "mod2convert.h"
 #include "channel.h"
 #include "rcode.h"
 #include "check.h"
@@ -63,6 +61,26 @@ int main
 
   int i, j, k;
 
+  mod2sparse *H;
+  gen_matrix gm;
+
+  channel_type channel;
+  double channel_data;
+
+  decoding_method dec_method;
+  int table;
+  int block_no;
+
+  int max_iter;
+  char *gen_file;
+
+  pf = NULL;
+  awn_data = NULL;
+  bsc_data = NULL;
+  misc_data = NULL;
+
+  gen_file = NULL;
+
   /* Look at initial flag arguments. */
 
   table = 0;
@@ -100,10 +118,10 @@ int main
 
   if (argv[4]==0 || argv[5]==0) usage();
 
-  k = channel_parse(argv+4,argc-4);
+  k = channel_parse(argv+4,argc-4, &channel, &channel_data);
   if (k<=0)
   { pfile = argv[4];
-    k = channel_parse(argv+5,argc-5);
+    k = channel_parse(argv+5,argc-5, &channel, &channel_data);
     if (k<=0) usage();
     meth = argv+5+k;
   }
@@ -151,11 +169,11 @@ int main
 
   /* Read parity check file. */
 
-  read_pchk(pchk_file);
+  H = read_pchk(pchk_file, &gm.dim);
 
-  if (N<=M)
+  if (gm.dim.N<=gm.dim.M)
   { fprintf(stderr,
-     "Number of bits (%d) should be greater than number of checks (%d)\n",N,M);
+     "Number of bits (%d) should be greater than number of checks (%d)\n",gm.dim.N,gm.dim.M);
     exit(1);
   }
 
@@ -189,15 +207,15 @@ int main
 
   switch (channel)
   { case BSC:
-    { bsc_data = chk_alloc (N, sizeof *bsc_data);
+    { bsc_data = chk_alloc (gm.dim.N, sizeof *bsc_data);
       break;
     }
     case AWGN: case AWLN:
-    { awn_data = chk_alloc (N, sizeof *awn_data);
+    { awn_data = chk_alloc (gm.dim.N, sizeof *awn_data);
       break;
     }
     case MISC:
-    { misc_data = chk_alloc (N, sizeof *misc_data);
+    { misc_data = chk_alloc (gm.dim.N, sizeof *misc_data);
       break;
     }
     default:
@@ -207,10 +225,10 @@ int main
 
   /* Allocate other space. */
 
-  dblk   = chk_alloc (N, sizeof *dblk);
-  lratio = chk_alloc (N, sizeof *lratio);
-  pchk   = chk_alloc (M, sizeof *pchk);
-  bitpr  = chk_alloc (N, sizeof *bitpr);
+  dblk   = chk_alloc (gm.dim.N, sizeof *dblk);
+  lratio = chk_alloc (gm.dim.N, sizeof *lratio);
+  pchk   = chk_alloc (gm.dim.M, sizeof *pchk);
+  bitpr  = chk_alloc (gm.dim.N, sizeof *bitpr);
 
   /* Print header for summary table. */
 
@@ -222,11 +240,11 @@ int main
 
   switch (dec_method)
   { case Prprp: 
-    { prprp_decode_setup();
+    { prprp_decode_setup(table);
       break;
     }
     case Enum_block: case Enum_bit:
-    { enum_decode_setup();
+    { enum_decode_setup(&gm, table, gen_file);
       break;
     }
     default: abort();
@@ -242,7 +260,7 @@ int main
   { 
     /* Read block from received file, exit if end-of-file encountered. */
 
-    for (i = 0; i<N; i++)
+    for (i = 0; i<gm.dim.N; i++)
     { int c;
       switch (channel)
       { case BSC:  
@@ -276,31 +294,31 @@ int main
 
     switch (channel)
     { case BSC:
-      { for (i = 0; i<N; i++)
-        { lratio[i] = bsc_data[i]==1 ? (1-error_prob) / error_prob
-                                     : error_prob / (1-error_prob);
+      { for (i = 0; i<gm.dim.N; i++)
+        { lratio[i] = bsc_data[i]==1 ? (1-channel_data) / channel_data
+                                     : channel_data / (1-channel_data);
         }
         break;
       }
       case AWGN:
-      { for (i = 0; i<N; i++)
-        { lratio[i] = exp(2*awn_data[i]/(std_dev*std_dev));
+      { for (i = 0; i<gm.dim.N; i++)
+        { lratio[i] = exp(2*awn_data[i]/(channel_data*channel_data));
         }
         break;
       }
       case AWLN:
-      { for (i = 0; i<N; i++)
+      { for (i = 0; i<gm.dim.N; i++)
         { double e, d1, d0;
-          e = exp(-(awn_data[i]-1)/lwidth);
+          e = exp(-(awn_data[i]-1)/channel_data);
           d1 = 1 / ((1+e)*(1+1/e));
-          e = exp(-(awn_data[i]+1)/lwidth);
+          e = exp(-(awn_data[i]+1)/channel_data);
           d0 = 1 / ((1+e)*(1+1/e));
           lratio[i] = d1/d0;
         }
         break;
       }
       case MISC:
-      { for (i = 0; i<N; i++)
+      { for (i = 0; i<gm.dim.N; i++)
         { lratio[i] = exp(-misc_data[i]);
         }
         break;
@@ -312,11 +330,11 @@ int main
 
     switch (dec_method)
     { case Prprp:
-      { iters = prprp_decode (H, lratio, dblk, pchk, bitpr);
+      { iters = prprp_decode (H, lratio, dblk, pchk, bitpr, table, block_no, max_iter);
         break;
       }
       case Enum_block: case Enum_bit:
-      { iters = enum_decode (lratio, dblk, bitpr, dec_method==Enum_block);
+      { iters = enum_decode (lratio, dblk, bitpr, dec_method==Enum_block, H, &gm, table, block_no);
         break;
       }
       default: abort();
@@ -326,7 +344,7 @@ int main
 
     valid = check(H,dblk,pchk)==0;
 
-    chngd = changed(lratio,dblk,N);
+    chngd = changed(lratio,dblk,gm.dim.N);
 
     tot_iter += iters;
     tot_valid += valid;
@@ -343,12 +361,12 @@ int main
 
     /* Write decoded block. */
 
-    blockio_write(df,dblk,N);
+    blockio_write(df,dblk,gm.dim.N);
 
     /* Write bit probabilities, if asked to. */
 
     if (pfile)
-    { for (j = 0; j<N; j++)
+    { for (j = 0; j<gm.dim.N; j++)
       { fprintf(pf," %.5f",bitpr[j]);
       }
       fprintf(pf,"\n");
@@ -367,7 +385,7 @@ done:
   fprintf(stderr,
   "Decoded %d blocks, %d valid.  Average %.1f iterations, %.0f%% bit changes\n",
    block_no, tot_valid, (double)tot_iter/block_no, 
-   100.0*(double)tot_changed/(N*block_no));
+   100.0*(double)tot_changed/(gm.dim.N*block_no));
 
   if (ferror(df) || fclose(df)!=0)
   { fprintf(stderr,"Error writing decoded blocks to %s\n",dfile);

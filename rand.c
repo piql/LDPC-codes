@@ -23,7 +23,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <string.h>
 #include <math.h>
 
 #include "rand.h"
@@ -486,9 +485,6 @@ double rand_beta
    The GNU Lesser General Public License is included with these source
    files in the file LGPL. */
 
-#include <errno.h>
-#include <limits.h>
-#include <sys/types.h>
 
 struct this_drand48_data
   {

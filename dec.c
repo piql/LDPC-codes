@@ -24,23 +24,10 @@
 #include "alloc.h"
 #include "mod2sparse.h"
 #include "mod2dense.h"
-#include "mod2convert.h"
-#include "rand.h"
 #include "rcode.h"
 #include "check.h"
 #include "dec.h"
 #include "enc.h"
-
-
-/* GLOBAL VARIABLES.  Declared in dec.h. */
-
-decoding_method dec_method;	/* Decoding method to use */
-
-int table;	/* Trace option, 2 for a table of decoding details */
-int block_no;	/* Number of current block, from zero */
-
-int max_iter;	/* Maximum number of iteratons of decoding to do */
-char *gen_file;	/* Generator file for Enum_block and Enum_bit */
 
 
 /* DECODE BY EXHAUSTIVE ENUMERATION.  Decodes by trying all possible source
@@ -54,22 +41,23 @@ char *gen_file;	/* Generator file for Enum_block and Enum_bit */
    will be the same for all blocks).  The return valued is "unsigned" because
    it might conceivably be as big as 2^31.
 
-   The parity check matrix and other data are taken from the global variables
-   declared in rcode.h.
-
    The number of message bits should not be greater than 31 for this procedure.
    The setup procedure immediately below checks this, reads the generator file,
    and outputs headers for the detailed trace file, if required.
  */
 
-void enum_decode_setup(void)
+void enum_decode_setup(
+  gen_matrix *gm,
+  int table,		/* Trace option, 2 for a table of decoding details */
+  char *gen_file		/* Generator file for Enum_block and Enum_bit */
+)
 {
-  read_gen(gen_file,0,0);
+  read_gen(gen_file,0,0, gm);
 
-  if (N-M>31)
+  if (gm->dim.N-gm->dim.M>31)
   { fprintf(stderr,
 "Trying to decode messages with %d bits by exhaustive enumeration is absurd!\n",
-      N-M);
+      gm->dim.N-gm->dim.M);
     exit(1);  
   }
 
@@ -82,7 +70,11 @@ unsigned enum_decode
 ( double *lratio,	/* Likelihood ratios for bits */
   char *dblk, 		/* Place to stored decoded message */
   double *bitpr,	/* Place to store marginal bit probabilities */
-  int max_block		/* Maximize probability of whole block being correct? */
+  int max_block,		/* Maximize probability of whole block being correct? */
+  mod2sparse *H,		/* Parity check matrix */
+  gen_matrix *gm,		/* Generator matrix */
+  int table,		/* Trace option, 2 for a table of decoding details */
+  int block_no		/* Number of current block, from zero */
 )
 {
   mod2dense *u, *v;
@@ -93,33 +85,38 @@ unsigned enum_decode
   unsigned d;
   int i, j;
 
-  if (N-M>31) abort();
+  if (gm->dim.N-gm->dim.M>31) abort();
 
   /* Allocate needed space. */
 
   bpr = bitpr;
   if (bpr==0 && max_block==0)
-  { bpr = chk_alloc (N, sizeof *bpr);
+  { bpr = chk_alloc (gm->dim.N, sizeof *bpr);
   }
 
-  cblk = chk_alloc (N, sizeof *cblk);
+  cblk = chk_alloc (gm->dim.N, sizeof *cblk);
 
-  if (type=='d')
-  { u = mod2dense_allocate(N-M,1);
-    v = mod2dense_allocate(M,1);
+  if (gm->type=='d')
+  { u = mod2dense_allocate(gm->dim.N-gm->dim.M,1);
+    v = mod2dense_allocate(gm->dim.M,1);
   }
 
-  if (type=='m')
-  { u = mod2dense_allocate(M,1);
-    v = mod2dense_allocate(M,1);
+  else if (gm->type=='m')
+  { u = mod2dense_allocate(gm->dim.M,1);
+    v = mod2dense_allocate(gm->dim.M,1);
+  } 
+
+  else
+  { u = NULL;
+    v = NULL;
   }
 
-  lk0 = chk_alloc (N, sizeof *lk0);
-  lk1 = chk_alloc (N, sizeof *lk1);
+  lk0 = chk_alloc (gm->dim.N, sizeof *lk0);
+  lk1 = chk_alloc (gm->dim.N, sizeof *lk1);
 
   /* Pre-compute likelihoods for bits. */
 
-  for (j = 0; j<N; j++)
+  for (j = 0; j<gm->dim.N; j++)
   { lk0[j] = 1/(1+lratio[j]);
     lk1[j] = 1 - lk0[j];
   }
@@ -127,34 +124,34 @@ unsigned enum_decode
   /* Initialize marginal bit probabilities. */
 
   if (bpr)
-  { for (j = 0; j<N; j++) bpr[j] = 0.0;
+  { for (j = 0; j<gm->dim.N; j++) bpr[j] = 0.0;
   }
 
   /* Exhaustively try all possible decoded messages. */
 
   tpr = 0.0;
 
-  for (d = 0; d<=(1u<<(N-M))-1; d++)
+  for (d = 0; d<=(1u<<(gm->dim.N-gm->dim.M))-1; d++)
   {
     /* Unpack message into source block. */
 
-    for (i = N-M-1; i>=0; i--)
+    for (i = gm->dim.N-gm->dim.M-1; i>=0; i--)
     { sblk[i] = (d>>i)&1;
     }
 
     /* Find full codeword for this message. */
 
-    switch (type)
+    switch (gm->type)
     { case 's':
-      { sparse_encode (sblk, cblk);
+      { sparse_encode (sblk, cblk, H, gm);
         break;
       }
       case 'd':
-      { dense_encode (sblk, cblk, u, v);
+      { dense_encode (sblk, cblk, u, v, gm);
         break;
       }
       case 'm':
-      { mixed_encode (sblk, cblk, u, v);
+      { mixed_encode (sblk, cblk, u, v, H, gm);
         break;
       }
     }
@@ -162,7 +159,7 @@ unsigned enum_decode
     /* Compute likelihood for this decoding. */
 
     lk = 1;
-    for (j = 0; j<N; j++)
+    for (j = 0; j<gm->dim.N; j++)
     { lk *= cblk[j]==0 ? lk0[j] : lk1[j];
     }
 
@@ -170,7 +167,7 @@ unsigned enum_decode
 
     if (max_block)
     { if (d==0 || lk>maxlk)
-      { for (j = 0; j<N; j++)
+      { for (j = 0; j<gm->dim.N; j++)
         { dblk[j] = cblk[j];
         }
         maxlk = lk;
@@ -180,7 +177,7 @@ unsigned enum_decode
     /* Update bit probabilities. */
  
     if (bpr)
-    { for (j = 0; j<N; j++) 
+    { for (j = 0; j<gm->dim.N; j++)
       { if (cblk[j]==1) 
         { bpr[j] += lk;
         }
@@ -198,14 +195,14 @@ unsigned enum_decode
   /* Normalize bit probabilities. */
 
   if (bpr)
-  { for (j = 0; j<N; j++) bpr[j] /= tpr;
+  { for (j = 0; j<gm->dim.N; j++) bpr[j] /= tpr;
   }
 
   /* Decoding to maximize bit-by-bit success, if that's what's wanted. 
      In case of a tie, decode to a 1. */
 
   if (!max_block)
-  { for (j = 0; j<N; j++) 
+  { for (j = 0; j<gm->dim.N; j++)
     { dblk[j] = bpr[j]>=0.5;
     }
   }
@@ -217,7 +214,7 @@ unsigned enum_decode
   free(lk0);
   free(lk1);
 
-  return 1<<(N-M);
+  return 1<<(gm->dim.N-gm->dim.M);
 }
 
 
@@ -240,7 +237,7 @@ unsigned enum_decode
    file, if required.
 */
 
-void prprp_decode_setup (void)
+void prprp_decode_setup (int table)
 {
   if (table==2)
   { printf(
@@ -253,7 +250,10 @@ unsigned prprp_decode
   double *lratio,	/* Likelihood ratios for bits */
   char *dblk,		/* Place to store decoding */
   char *pchk,		/* Place to store parity checks */
-  double *bprb		/* Place to store bit probabilities */
+  double *bprb,		/* Place to store bit probabilities */
+  int table,		/* Trace option, 2 for a table of decoding details */
+  int block_no,		/* Number of current block, from zero */
+  int max_iter		/* Maximum number of iterations of decoding to do */
 )
 { 
   int N, n, c;

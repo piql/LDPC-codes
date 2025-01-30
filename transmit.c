@@ -15,8 +15,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <math.h>
 
 #include "channel.h"
 #include "open.h"
@@ -39,6 +37,8 @@ int main
   int seed;
   int cnt;
   int n, b;
+  channel_type channel;
+  double channel_data;
 
   /* Look at arguments.  The arguments specifying the channel are looked
      at by channel_parse in channel.c */
@@ -49,7 +49,7 @@ int main
   { usage();
   }
 
-  n = channel_parse(argv+4,argc-4);
+  n = channel_parse(argv+4,argc-4, &channel, &channel_data);
   if (n<=0 || argc-4-n!=0) 
   { usage();
   }
@@ -127,19 +127,19 @@ int main
     switch (channel)
     { case BSC:
       { int bsc_noise;
-        bsc_noise = rand_uniform() < error_prob;
+        bsc_noise = rand_uniform() < channel_data;
         fprintf (rf, "%d", b^bsc_noise);
         break;
       }
       case AWGN:
       { double awgn_noise;
-        awgn_noise = std_dev * rand_gaussian();
+        awgn_noise = channel_data * rand_gaussian();
         fprintf (rf, " %+5.2f", b ? 1+awgn_noise : -1+awgn_noise);
         break;
       }
       case AWLN:
       { double awln_noise;
-        awln_noise = lwidth * rand_logistic();
+        awln_noise = channel_data * rand_logistic();
         fprintf (rf, " %+5.2f", b ? 1+awln_noise : -1+awln_noise);
         break;
       }
