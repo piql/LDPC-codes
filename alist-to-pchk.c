@@ -36,6 +36,7 @@ int main
   char **argv
 )
 {
+  Arena arena;
   char *alist_file, *pchk_file;
   FILE *af, *pf;
   int mxrw, mxcw;
@@ -83,7 +84,11 @@ int main
   { bad_alist_file();
   }
 
-  rw = (int *) chk_alloc (M, sizeof *rw);
+  arena.size = 16 * 1024 * 1024;
+  arena.base = malloc(arena.size);
+  arena.used = 0;
+
+  rw = (int *) chk_alloc (&arena, M, sizeof *rw);
 
   for (i = 0; i<M; i++)
   { if (fscanf(af,"%d",&rw[i])!=1 || rw[i]<0 || rw[i]>N)
@@ -91,7 +96,7 @@ int main
     }
   }
 
-  cw = (int *) chk_alloc (N, sizeof *cw);
+  cw = (int *) chk_alloc (&arena, N, sizeof *cw);
 
   for (j = 0; j<N; j++)
   { if (fscanf(af,"%d",&cw[j])!=1 || cw[j]<0 || cw[j]>M)
@@ -99,7 +104,7 @@ int main
     }
   }
 
-  H = mod2sparse_allocate(M,N);
+  H = mod2sparse_allocate(&arena, M,N);
 
   do { if (fscanf(af,"%d",&nxt)!=1) nxt = -1; } while (nxt==0);
       
@@ -110,7 +115,7 @@ int main
     { if (nxt<=0 || nxt>N || mod2sparse_find(H,i,nxt-1))
       { bad_alist_file();
       }
-      mod2sparse_insert(H,i,nxt-1);
+      mod2sparse_insert(&arena, H,i,nxt-1);
       tot += 1;
       do { if (fscanf(af,"%d",&nxt)!=1) nxt = -1; } while (nxt==0);
     }
@@ -133,8 +138,8 @@ int main
   if (trans)
   { mod2sparse *HT;
     HT = H;
-    H = mod2sparse_allocate(N,M);
-    mod2sparse_transpose(HT,H);
+    H = mod2sparse_allocate(&arena, N,M);
+    mod2sparse_transpose(&arena, HT,H);
   }
   
   pf = open_file_std(pchk_file,"wb");

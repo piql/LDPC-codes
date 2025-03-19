@@ -43,7 +43,7 @@ typedef struct distrib
 
 /* PROCEDURES FOR DISTRIBUTION LISTS. */
 
-distrib *distrib_create	(char *);
+distrib *distrib_create	(Arena *, char *);
 void distrib_free (distrib *);
 
 int distrib_max(distrib *);

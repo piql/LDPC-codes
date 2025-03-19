@@ -18,6 +18,7 @@
 
 #include "intio.h"
 #include "open.h"
+#include "alloc.h"
 #include "mod2sparse.h"
 #include "mod2dense.h"
 #include "rcode.h"
@@ -33,6 +34,7 @@ int main
   char **argv
 )
 {
+  Arena arena;
   char **bit_specs;
   char *file;
   FILE *f;
@@ -56,7 +58,11 @@ int main
   { usage();
   }
 
-  H = mod2sparse_allocate(M,N);
+  arena.size = 16 * 1024 * 1024;
+  arena.base = malloc(arena.size);
+  arena.used = 0;
+
+  H = mod2sparse_allocate(&arena, M,N);
 
   for (k = 0; bit_specs[k]!=0; k++)
   { if (sscanf(bit_specs[k],"%d:%d%c",&i,&j,&junk)!=2 || i<0 || j<0) 
@@ -64,14 +70,16 @@ int main
     }
     if (i>=M || j>=N)
     { fprintf(stderr,"Bit %d:%d is out of range\n",i,j);
+      free(arena.base);
       exit(1);
     }
-    mod2sparse_insert(H,i,j);
+    mod2sparse_insert(&arena, H,i,j);
   }
 
   f = open_file_std(file,"wb");
   if (f==NULL) 
   { fprintf(stderr,"Can't create parity check file: %s\n",file);
+    free(arena.base);
     exit(1);
   }
 
@@ -79,8 +87,11 @@ int main
   
   if (ferror(f) || !mod2sparse_write(f,H) || fclose(f)!=0)
   { fprintf(stderr,"Error writing to parity check file %s\n",file);
+    free(arena.base);
     exit(1);
   }
+
+  free(arena.base);
 
   return 0;
 }

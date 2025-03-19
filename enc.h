@@ -13,6 +13,6 @@
  * risk.
  */
 
-void sparse_encode (char *, char *, mod2sparse *H, gen_matrix *gm);
+void sparse_encode (void *mem, size_t mem_size, char *, char *, mod2sparse *H, gen_matrix *gm);
 void dense_encode  (char *, char *, mod2dense *, mod2dense *, gen_matrix *gm);
 void mixed_encode  (char *, char *, mod2dense *, mod2dense *, mod2sparse *H, gen_matrix *gm);

@@ -53,5 +53,5 @@ typedef struct
 
 /* PROCEDURES FOR READING DATA. */
 
-mod2sparse *read_pchk (char *, pchk_dimensions *dim);
-void read_gen  (char *, int, int, gen_matrix *gm);
+mod2sparse *read_pchk (Arena *, char *, pchk_dimensions *dim);
+void read_gen  (Arena *, char *, int, int, gen_matrix *gm);

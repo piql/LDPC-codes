@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "alloc.h"
 #include "mod2dense.h"
 #include "mod2sparse.h"
 #include "mod2convert.h"
@@ -57,7 +58,8 @@ void mod2sparse_to_dense
 /* CONVERT A MOD2 MATRIX FROM DENSE TO SPARSE FORM.  */
 
 void mod2dense_to_sparse 
-( mod2dense *m, 	/* Dense matrix to convert */
+( Arena *arena,
+  mod2dense *m, 	/* Dense matrix to convert */
   mod2sparse *r		/* Place to store result */
 )
 {
@@ -75,7 +77,7 @@ void mod2dense_to_sparse
   for (i = 0; i<mod2dense_rows(m); i++)
   { for (j = 0; j<mod2dense_cols(m); j++)
     { if (mod2dense_get(m,i,j))
-      { mod2sparse_insert(r,i,j);
+      { mod2sparse_insert(arena, r,i,j);
       }
     }
   }

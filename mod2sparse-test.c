@@ -20,11 +20,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "alloc.h"
 #include "mod2sparse.h"
 
 
 int main(void)
 {
+  Arena arena;
   mod2sparse *m1, *m2, *m3, *m4;
   mod2sparse *s0, *s1, *s2, *s3, *s4;
   mod2sparse *L, *U;
@@ -33,20 +35,23 @@ int main(void)
   int i, j;
   FILE *f;
 
+  arena.size = 16 * 1024 * 1024;
+  arena.base = malloc(arena.size);
+  arena.used = 0;
 
   printf("\nPART 1:\n\n");
 
   /* Set up m1 with bits on a diagonal plus a few more set to 1. */
 
-  m1 = mod2sparse_allocate(35,40);
+  m1 = mod2sparse_allocate(&arena, 35,40);
 
   mod2sparse_clear(m1);
 
-  for (i = 0; i<35; i++) mod2sparse_insert(m1,i,i);
+  for (i = 0; i<35; i++) mod2sparse_insert(&arena, m1,i,i);
 
-  mod2sparse_insert(m1,2,3);
-  mod2sparse_insert(m1,34,4);
-  mod2sparse_insert(m1,10,38);
+  mod2sparse_insert(&arena, m1,2,3);
+  mod2sparse_insert(&arena, m1,34,4);
+  mod2sparse_insert(&arena, m1,10,38);
 
   /* Print m1. */
 
@@ -76,7 +81,7 @@ int main(void)
     exit(1);
   }
 
-  m2 = mod2sparse_read(f);
+  m2 = mod2sparse_read(&arena, f);
 
   if (m2==0)
   { printf("Error from mod2sparse_read\n");
@@ -94,9 +99,9 @@ int main(void)
 
   /* Copy m1 to m3. */
 
-  m3 = mod2sparse_allocate(mod2sparse_rows(m1),mod2sparse_cols(m1));
+  m3 = mod2sparse_allocate(&arena, mod2sparse_rows(m1),mod2sparse_cols(m1));
 
-  mod2sparse_copy(m1,m3);
+  mod2sparse_copy(&arena, m1,m3);
 
   /* Print m3, along with result of equality test. */
 
@@ -125,9 +130,9 @@ int main(void)
 
   /* Compute transpose of m1. */
 
-  m4 = mod2sparse_allocate(mod2sparse_cols(m1),mod2sparse_rows(m1));
+  m4 = mod2sparse_allocate(&arena, mod2sparse_cols(m1),mod2sparse_rows(m1));
 
-  mod2sparse_transpose(m1,m4);
+  mod2sparse_transpose(&arena, m1,m4);
 
   /* Print transpose. */
 
@@ -137,33 +142,31 @@ int main(void)
 
   /* Add rows and columns in m1. */
 
-  mod2sparse_add_row(m1,10,m1,2); 
-  mod2sparse_add_row(m1,10,m1,12);
-  mod2sparse_add_row(m1,10,m1,3); 
+  mod2sparse_add_row(&arena, m1,10,m1,2); 
+  mod2sparse_add_row(&arena, m1,10,m1,12);
+  mod2sparse_add_row(&arena, m1,10,m1,3); 
   printf("Matrix m1 after adding rows 2 and 12 and 3 to 10.\n\n");
   mod2sparse_print(stdout,m1);
   printf("\n"); fflush(stdout);
   printf("Matrix m1 after further adding column 34 to 0.\n\n");
-  mod2sparse_add_col(m1,0,m1,34);
+  mod2sparse_add_col(&arena, m1,0,m1,34);
   mod2sparse_print(stdout,m1);
   printf("\n"); fflush(stdout);
 
   /* Free space for m1, m2, and m3. */
 
-  mod2sparse_free(m1);
-  mod2sparse_free(m2);
-  mod2sparse_free(m3);
+  arena.used = 0;
 
 
   printf("\nPART 3:\n\n");
   
   /* Allocate some small matrices. */
 
-  s0 = mod2sparse_allocate(5,7);
-  s1 = mod2sparse_allocate(5,7);
-  s2 = mod2sparse_allocate(7,4);
-  s3 = mod2sparse_allocate(5,4);
-  s4 = mod2sparse_allocate(5,7);
+  s0 = mod2sparse_allocate(&arena, 5,7);
+  s1 = mod2sparse_allocate(&arena, 5,7);
+  s2 = mod2sparse_allocate(&arena, 7,4);
+  s3 = mod2sparse_allocate(&arena, 5,4);
+  s4 = mod2sparse_allocate(&arena, 5,7);
 
   /* Set up the contents of s0, s1, and s2. */
 
@@ -171,22 +174,22 @@ int main(void)
   mod2sparse_clear(s1);
   mod2sparse_clear(s2);
 
-  mod2sparse_insert(s0,1,3);
-  mod2sparse_insert(s0,1,4);
-  mod2sparse_insert(s0,2,0);
-  mod2sparse_insert(s0,3,1);
+  mod2sparse_insert(&arena, s0,1,3);
+  mod2sparse_insert(&arena, s0,1,4);
+  mod2sparse_insert(&arena, s0,2,0);
+  mod2sparse_insert(&arena, s0,3,1);
 
-  mod2sparse_insert(s1,1,3);
-  mod2sparse_insert(s1,1,5);
-  mod2sparse_insert(s1,3,0);
-  mod2sparse_insert(s1,3,1);
-  mod2sparse_insert(s1,3,6);
+  mod2sparse_insert(&arena, s1,1,3);
+  mod2sparse_insert(&arena, s1,1,5);
+  mod2sparse_insert(&arena, s1,3,0);
+  mod2sparse_insert(&arena, s1,3,1);
+  mod2sparse_insert(&arena, s1,3,6);
 
-  mod2sparse_insert(s2,5,1);
-  mod2sparse_insert(s2,5,2);
-  mod2sparse_insert(s2,5,3);
-  mod2sparse_insert(s2,0,0);
-  mod2sparse_insert(s2,1,1);
+  mod2sparse_insert(&arena, s2,5,1);
+  mod2sparse_insert(&arena, s2,5,2);
+  mod2sparse_insert(&arena, s2,5,3);
+  mod2sparse_insert(&arena, s2,0,0);
+  mod2sparse_insert(&arena, s2,1,1);
 
   /* Print s0, s1, and s2. */
 
@@ -211,7 +214,7 @@ int main(void)
    
   /* Add s0 and s1, storing the result in s4, then print s4. */
 
-  mod2sparse_add(s0,s1,s4);
+  mod2sparse_add(&arena, s0,s1,s4);
 
   printf("Sum of s0 and s1.\n\n");
   mod2sparse_print(stdout,s4);
@@ -219,7 +222,7 @@ int main(void)
 
   /* Multiply s1 and s2, storing the product in s3, and then print s3. */
 
-  mod2sparse_multiply(s1,s2,s3);
+  mod2sparse_multiply(&arena, s1,s2,s3);
 
   printf("Product of s1 and s2.\n\n");
   mod2sparse_print(stdout,s3);
@@ -251,31 +254,27 @@ int main(void)
 
   /* Free space for s0, s1, s2, s3, and s4. */
 
-  mod2sparse_free(s0);
-  mod2sparse_free(s1);
-  mod2sparse_free(s2);
-  mod2sparse_free(s3);
-  mod2sparse_free(s4);
+  arena.used = 0;
 
 
   printf("\nPART 4:\n\n");
 
   /* Set up a small rectangular matrix, s1. */
 
-  s1 = mod2sparse_allocate(6,7);
+  s1 = mod2sparse_allocate(&arena, 6,7);
 
   mod2sparse_clear(s1);
 
-  mod2sparse_insert(s1,0,3);
-  mod2sparse_insert(s1,0,5);
-  mod2sparse_insert(s1,1,6);
-  mod2sparse_insert(s1,1,1);
-  mod2sparse_insert(s1,2,0);
-  mod2sparse_insert(s1,3,1);
-  mod2sparse_insert(s1,3,2);
-  mod2sparse_insert(s1,4,2);
-  mod2sparse_insert(s1,4,0);
-  mod2sparse_insert(s1,5,6);
+  mod2sparse_insert(&arena, s1,0,3);
+  mod2sparse_insert(&arena, s1,0,5);
+  mod2sparse_insert(&arena, s1,1,6);
+  mod2sparse_insert(&arena, s1,1,1);
+  mod2sparse_insert(&arena, s1,2,0);
+  mod2sparse_insert(&arena, s1,3,1);
+  mod2sparse_insert(&arena, s1,3,2);
+  mod2sparse_insert(&arena, s1,4,2);
+  mod2sparse_insert(&arena, s1,4,0);
+  mod2sparse_insert(&arena, s1,5,6);
 
   /* Print s1. */
 
@@ -285,10 +284,10 @@ int main(void)
 
   /* Compute and print LU decomposition. */
 
-  L = mod2sparse_allocate(6,5);
-  U = mod2sparse_allocate(5,7);
+  L = mod2sparse_allocate(&arena, 6,5);
+  U = mod2sparse_allocate(&arena, 5,7);
 
-  i = mod2sparse_decomp(s1,5,L,U,rows,cols,Mod2sparse_first,0,0);
+  i = mod2sparse_decomp(&arena, s1,5,L,U,rows,cols,Mod2sparse_first,0,0);
 
   printf("LU decomposition (returned value was %d).\n\n",i);
   printf("L=\n");
@@ -308,8 +307,8 @@ int main(void)
   /* Compute and print product of L and U. Should match s1 for the
      sub-matrix found. */
 
-  s2 = mod2sparse_allocate(6,7);
-  mod2sparse_multiply(L,U,s2);
+  s2 = mod2sparse_allocate(&arena, 6,7);
+  mod2sparse_multiply(&arena, L,U,s2);
 
   printf("Product of L and U.\n\n");
   mod2sparse_print(stdout,s2);
@@ -338,14 +337,14 @@ int main(void)
 
   printf("\nPART 5:\n\n");
 
-  m1 = mod2sparse_allocate(4,4);
-  m2 = mod2sparse_allocate(4,4);
-  m3 = mod2sparse_allocate(4,4);
+  m1 = mod2sparse_allocate(&arena, 4,4);
+  m2 = mod2sparse_allocate(&arena, 4,4);
+  m3 = mod2sparse_allocate(&arena, 4,4);
 
-  mod2sparse_insert(m1,0,3);
-  mod2sparse_insert(m1,1,1);
-  mod2sparse_insert(m1,2,2);
-  mod2sparse_insert(m1,3,0);
+  mod2sparse_insert(&arena, m1,0,3);
+  mod2sparse_insert(&arena, m1,1,1);
+  mod2sparse_insert(&arena, m1,2,2);
+  mod2sparse_insert(&arena, m1,3,0);
 
   printf("Matrix m1:\n\n");
 
@@ -355,7 +354,7 @@ int main(void)
   printf("Matrix m2, copyrows of m1 in order 3,1,2,0 (should be identity)\n\n");
 
   { int rows[] = { 3, 1, 2, 0 };
-    mod2sparse_copyrows(m1,m2,rows);
+    mod2sparse_copyrows(&arena, m1,m2,rows);
   }
 
   mod2sparse_print(stdout,m2);
@@ -364,7 +363,7 @@ int main(void)
   printf("Matrix m3, copycols of m1 in order 3,1,2,0 (should be identity)\n\n");
 
   { int cols[] = { 3, 1, 2, 0 };
-    mod2sparse_copycols(m1,m3,cols);
+    mod2sparse_copycols(&arena, m1,m3,cols);
   }
 
   mod2sparse_print(stdout,m3);
@@ -372,6 +371,8 @@ int main(void)
 
 
   printf("\nDONE WITH TESTS.\n");
+
+  free(arena.base);
 
   exit(0);
 }

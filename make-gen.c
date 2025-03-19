@@ -27,8 +27,8 @@
 
 typedef enum { Sparse, Dense, Mixed } make_method;      /* Ways of making it */
 
-void make_dense_mixed (FILE *, make_method, char *, mod2sparse *H, gen_matrix *gm);     /* Procs to make it */
-void make_sparse (FILE *, mod2sparse_strategy, int, int, mod2sparse *H, gen_matrix *gm);
+void make_dense_mixed (Arena *, FILE *, make_method, char *, mod2sparse *H, gen_matrix *gm);     /* Procs to make it */
+void make_sparse (Arena *, FILE *, mod2sparse_strategy, int, int, mod2sparse *H, gen_matrix *gm);
 void usage(void);
 
 
@@ -39,6 +39,7 @@ int main
   char **argv
 )
 {
+  Arena arena;
   char *pchk_file, *gen_file, *other_gen_file;
   mod2sparse_strategy strategy;
   int abandon_when, abandon_number;
@@ -101,9 +102,13 @@ int main
   { usage();
   }
 
+  arena.size = 32 * 1024 * 1024;
+  arena.base = malloc(arena.size);
+  arena.used = 0;
+
   /* Read parity check matrix. */
 
-  H = read_pchk(pchk_file, &gm.dim);
+  H = read_pchk(&arena, pchk_file, &gm.dim);
 
   if (gm.dim.N<=gm.dim.M)
   { fprintf(stderr,
@@ -121,18 +126,18 @@ int main
 
   /* Allocate space for row and column permutations. */
 
-  gm.cols = chk_alloc (gm.dim.N, sizeof *gm.cols);
-  gm.data.sparse.rows = chk_alloc (gm.dim.M, sizeof gm.data.sparse.rows);
+  gm.cols = chk_alloc (&arena, gm.dim.N, sizeof *gm.cols);
+  gm.data.sparse.rows = chk_alloc (&arena, gm.dim.M, sizeof gm.data.sparse.rows);
 
   /* Create generator matrix with specified method. */
 
   switch (method)
   { case Sparse: 
-    { make_sparse(f,strategy,abandon_number,abandon_when, H, &gm); 
+    { make_sparse(&arena, f,strategy,abandon_number,abandon_when, H, &gm); 
       break;
     }
     case Dense: case Mixed:
-    { make_dense_mixed(f,method,other_gen_file, H, &gm);
+    { make_dense_mixed(&arena, f,method,other_gen_file, H, &gm);
       break;
     }
     default: abort();
@@ -152,7 +157,8 @@ int main
 /* MAKE DENSE OR MIXED REPRESENTATION OF GENERATOR MATRIX. */
 
 void make_dense_mixed
-( FILE *f,
+( Arena *arena,
+  FILE *f,
   make_method method,
   char *other_gen_file,
   mod2sparse *H, /* Parity check matrix */
@@ -163,10 +169,10 @@ void make_dense_mixed
   int i, j, c, c2, n;
   int *rows_inv;
 
-  DH = mod2dense_allocate(gm->dim.M,gm->dim.N);
-  AI = mod2dense_allocate(gm->dim.M,gm->dim.M);
-  B  = mod2dense_allocate(gm->dim.M,gm->dim.N-gm->dim.M);
-  gm->data.G  = mod2dense_allocate(gm->dim.M,gm->dim.N-gm->dim.M);
+  DH = mod2dense_allocate(arena, gm->dim.M,gm->dim.N);
+  AI = mod2dense_allocate(arena, gm->dim.M,gm->dim.M);
+  B  = mod2dense_allocate(arena, gm->dim.M,gm->dim.N-gm->dim.M);
+  gm->data.G  = mod2dense_allocate(arena, gm->dim.M,gm->dim.N-gm->dim.M);
 
   mod2sparse_to_dense(H,DH);
 
@@ -175,9 +181,9 @@ void make_dense_mixed
 
   if (other_gen_file)
   { 
-    read_gen(other_gen_file,1,0, gm);
+    read_gen(arena, other_gen_file,1,0, gm);
 
-    A = mod2dense_allocate(gm->dim.M,gm->dim.M);
+    A = mod2dense_allocate(arena, gm->dim.M,gm->dim.M);
     mod2dense_copycols(DH,A,gm->cols);
 
     if (!mod2dense_invert(A,AI))
@@ -194,8 +200,8 @@ void make_dense_mixed
 
   if (!other_gen_file)
   {
-    A  = mod2dense_allocate(gm->dim.M,gm->dim.N);
-    A2 = mod2dense_allocate(gm->dim.M,gm->dim.N);
+    A  = mod2dense_allocate(arena, gm->dim.M,gm->dim.N);
+    A2 = mod2dense_allocate(arena, gm->dim.M,gm->dim.N);
 
     n = mod2dense_invert_selected(DH,A2,gm->data.sparse.rows,gm->cols);
     mod2sparse_to_dense(H,DH);  /* DH was destroyed by invert_selected */
@@ -204,7 +210,7 @@ void make_dense_mixed
     { fprintf(stderr,"Note: Parity check matrix has %d redundant checks\n",n);
     }
 
-    rows_inv = chk_alloc (gm->dim.M, sizeof *rows_inv);
+    rows_inv = chk_alloc (arena, gm->dim.M, sizeof *rows_inv);
 
     for (i = 0; i<gm->dim.M; i++)
     { rows_inv[gm->data.sparse.rows[i]] = i;
@@ -283,7 +289,8 @@ void make_dense_mixed
 /* MAKE SPARSE REPRESENTATION OF GENERATOR MATRIX. */
 
 void make_sparse
-( FILE *f,
+( Arena *arena,
+  FILE *f,
   mod2sparse_strategy strategy,
   int abandon_number,
   int abandon_when,
@@ -296,10 +303,10 @@ void make_sparse
 
   /* Find LU decomposition. */
 
-  gm->data.sparse.L = mod2sparse_allocate(gm->dim.M,gm->dim.M);
-  gm->data.sparse.U = mod2sparse_allocate(gm->dim.M,gm->dim.N);
+  gm->data.sparse.L = mod2sparse_allocate(arena, gm->dim.M,gm->dim.M);
+  gm->data.sparse.U = mod2sparse_allocate(arena, gm->dim.M,gm->dim.N);
 
-  n = mod2sparse_decomp(H,gm->dim.M,gm->data.sparse.L,gm->data.sparse.U,gm->data.sparse.rows,gm->cols,strategy,abandon_number,abandon_when);
+  n = mod2sparse_decomp(arena, H,gm->dim.M,gm->data.sparse.L,gm->data.sparse.U,gm->data.sparse.rows,gm->cols,strategy,abandon_number,abandon_when);
 
   if (n!=0 && abandon_number==0)
   { fprintf(stderr,"Note: Parity check matrix has %d redundant checks\n",n);

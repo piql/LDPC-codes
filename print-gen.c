@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "alloc.h"
 #include "mod2sparse.h"
 #include "mod2dense.h"
 #include "mod2convert.h"
@@ -32,6 +33,7 @@ int main
   char **argv
 )
 {
+  Arena arena;
   char *gen_file;
   int dprint;
   int i, j;
@@ -49,7 +51,11 @@ int main
   { usage();
   }
 
-  read_gen(gen_file,0,1, &gm);
+  arena.size = 16 * 1024 * 1024;
+  arena.base = malloc(arena.size);
+  arena.used = 0;
+
+  read_gen(&arena, gen_file,0,1, &gm);
 
   switch (gm.type)
   {
@@ -73,8 +79,8 @@ int main
 
       if (dprint)
       { mod2dense *Ld, *Ud;
-        Ld = mod2dense_allocate(gm.dim.M,gm.dim.M);
-        Ud = mod2dense_allocate(gm.dim.M,gm.dim.N);
+        Ld = mod2dense_allocate(&arena, gm.dim.M,gm.dim.M);
+        Ud = mod2dense_allocate(&arena, gm.dim.M,gm.dim.N);
         mod2sparse_to_dense(gm.data.sparse.L,Ld);
         mod2sparse_to_dense(gm.data.sparse.U,Ud);
         printf("L:\n\n");

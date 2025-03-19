@@ -20,11 +20,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "alloc.h"
 #include "mod2dense.h"
 
 
 int main(void)
 {
+  Arena arena;
   mod2dense *m1, *m2, *m3, *m4;
   mod2dense *s0, *s1, *s2, *s3, *s4, *s5;
   int a_row[35], a_col[35];
@@ -32,12 +34,15 @@ int main(void)
   int i, j;
   FILE *f;
 
+  arena.size = 16 * 1024 * 1024;
+  arena.base = malloc(arena.size);
+  arena.used = 0;
 
   printf("\nPART 1:\n\n");
 
   /* Set up m1 with bits on a diagonal plus a few more set to 1. */
 
-  m1 = mod2dense_allocate(35,40);
+  m1 = mod2dense_allocate(&arena, 35,40);
 
   mod2dense_clear(m1);
 
@@ -75,7 +80,7 @@ int main(void)
     exit(1);
   }
 
-  m2 = mod2dense_read(f);
+  m2 = mod2dense_read(&arena, f);
 
   if (m2==0)
   { printf("Error from mod2dense_read\n");
@@ -93,7 +98,7 @@ int main(void)
 
   /* Copy m1 to m3. */
 
-  m3 = mod2dense_allocate(mod2dense_rows(m1),mod2dense_cols(m1));
+  m3 = mod2dense_allocate(&arena, mod2dense_rows(m1),mod2dense_cols(m1));
 
   mod2dense_copy(m1,m3);
 
@@ -124,7 +129,7 @@ int main(void)
 
   /* Compute transpose of m1. */
 
-  m4 = mod2dense_allocate(mod2dense_cols(m1),mod2dense_rows(m1));
+  m4 = mod2dense_allocate(&arena, mod2dense_cols(m1),mod2dense_rows(m1));
 
   mod2dense_transpose(m1,m4);
 
@@ -136,20 +141,17 @@ int main(void)
 
   /* Free space for m1, m2, and m3. */
 
-  mod2dense_free(m1);
-  mod2dense_free(m2);
-  mod2dense_free(m3);
-
+  arena.used = 0;
 
   printf("\nPART 3:\n\n");
   
   /* Allocate some small matrices. */
 
-  s0 = mod2dense_allocate(5,7);
-  s1 = mod2dense_allocate(5,7);
-  s2 = mod2dense_allocate(7,4);
-  s3 = mod2dense_allocate(5,4);
-  s4 = mod2dense_allocate(5,7);
+  s0 = mod2dense_allocate(&arena, 5,7);
+  s1 = mod2dense_allocate(&arena, 5,7);
+  s2 = mod2dense_allocate(&arena, 7,4);
+  s3 = mod2dense_allocate(&arena, 5,4);
+  s4 = mod2dense_allocate(&arena, 5,7);
 
   /* Set up the contents of s0, s1, and s2. */
 
@@ -210,19 +212,15 @@ int main(void)
 
   /* Free space for s0, s1, s2, s3, and s4. */
 
-  mod2dense_free(s0);
-  mod2dense_free(s1);
-  mod2dense_free(s2);
-  mod2dense_free(s3);
-  mod2dense_free(s4);
+  arena.used = 0;
 
 
   printf("\nPART 4:\n\n");
 
   /* Set up a small square matrix, s1.  Also copy it to s2. */
 
-  s1 = mod2dense_allocate(5,5);
-  s2 = mod2dense_allocate(5,5);
+  s1 = mod2dense_allocate(&arena, 5,5);
+  s2 = mod2dense_allocate(&arena, 5,5);
 
   mod2dense_clear(s1);
 
@@ -245,7 +243,7 @@ int main(void)
 
   /* Compute inverse of s1, storing it in s3. */
 
-  s3 = mod2dense_allocate(5,5);
+  s3 = mod2dense_allocate(&arena, 5,5);
   
   code = mod2dense_invert(s1,s3);
 
@@ -279,14 +277,12 @@ int main(void)
 
   /* Free s1, s2, and s3. */
 
-  mod2dense_free(s1);
-  mod2dense_free(s2);
-  mod2dense_free(s3);
+  arena.used = 0;
 
   /* Set up a rectangular matrix like s1 above, but with two zero columns. 
      Copy to s4 as well. */
 
-  s1 = mod2dense_allocate(5,7);
+  s1 = mod2dense_allocate(&arena, 5,7);
 
   mod2dense_clear(s1);
 
@@ -299,7 +295,7 @@ int main(void)
   mod2dense_set(s1,4,2,1);
   mod2dense_set(s1,4,0,1);
 
-  s4 = mod2dense_allocate(5,7);
+  s4 = mod2dense_allocate(&arena, 5,7);
   mod2dense_copy(s1,s4);
 
   /* Print s1. */
@@ -310,7 +306,7 @@ int main(void)
 
   /* Compute inverse of sub-matrix of s1, storing it in s3.  Print results. */
 
-  s3 = mod2dense_allocate(5,7);
+  s3 = mod2dense_allocate(&arena, 5,7);
   
   code = mod2dense_invert_selected(s1,s3,a_row,a_col);
 
@@ -331,12 +327,12 @@ int main(void)
 
   printf("Columns extracted in order from original matrix.\n\n");
 
-  s2 = mod2dense_allocate(5,5);
+  s2 = mod2dense_allocate(&arena, 5,5);
   mod2dense_copycols(s4,s2,a_col);
   mod2dense_print(stdout,s2);
   printf("\n"); fflush(stdout);
 
-  s5 = mod2dense_allocate(5,5);
+  s5 = mod2dense_allocate(&arena, 5,5);
   code = mod2dense_invert(s2,s5);
   
   printf(
@@ -391,19 +387,15 @@ int main(void)
 
   mod2dense_print(stdout,s4);
 
-  free(s1);
-  free(s2);
-  free(s3);
-  free(s4);
-  free(s5);
+  arena.used = 0;
 
 
   printf("\nPART 5:\n\n");
 
   /* Set up a larger square matrix, s1.  Also copy it to s2. */
 
-  s1 = mod2dense_allocate(35,35);
-  s2 = mod2dense_allocate(35,35);
+  s1 = mod2dense_allocate(&arena, 35,35);
+  s2 = mod2dense_allocate(&arena, 35,35);
 
   mod2dense_clear(s1);
 
@@ -460,7 +452,7 @@ int main(void)
 
   /* Compute inverse of s1, storing it in s3. */
 
-  s3 = mod2dense_allocate(35,35);
+  s3 = mod2dense_allocate(&arena, 35,35);
   
   code = mod2dense_invert(s1,s3);
 
@@ -494,17 +486,15 @@ int main(void)
 
   /* Free s1, s2, and s3. */
 
-  mod2dense_free(s1);
-  mod2dense_free(s2);
-  mod2dense_free(s3);
+  arena.used = 0;
 
 
   printf("\nPART 6:\n\n");
 
   /* Set up a largish square matrix, s1.  Also copy it to s2. */
 
-  s1 = mod2dense_allocate(35,35);
-  s2 = mod2dense_allocate(35,35);
+  s1 = mod2dense_allocate(&arena, 35,35);
+  s2 = mod2dense_allocate(&arena, 35,35);
 
   mod2dense_clear(s1);
 
@@ -527,7 +517,7 @@ int main(void)
 
   /* Forcibly invert s1, storing inverse in s3. */
 
-  s3 = mod2dense_allocate(35,35);
+  s3 = mod2dense_allocate(&arena, 35,35);
   
   code = mod2dense_forcibly_invert(s1,s3,a_row,a_col);
 
@@ -554,6 +544,8 @@ int main(void)
   printf("\n"); fflush(stdout);
  
   printf("\nDONE WITH TESTS.\n");
+
+  free(arena.base);
 
   exit(0);
 }

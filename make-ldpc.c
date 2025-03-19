@@ -36,8 +36,8 @@ typedef enum
 } make_method; 
 
 
-void make_ldpc (int, make_method, distrib *, int, mod2sparse **H, int M, int N);
-int *column_partition (distrib *, int);
+void make_ldpc (Arena *, int, make_method, distrib *, int, mod2sparse **H, int M, int N);
+int *column_partition (Arena *, distrib *, int);
 void usage (void);
 
 
@@ -48,6 +48,7 @@ int main
   char **argv
 )
 {
+  Arena arena;
   make_method method;
   char *file, **meth;
   int seed, no4cycle;
@@ -77,29 +78,38 @@ int main
 
   no4cycle = 0;
 
+  arena.size = 16 * 1024 * 1024;
+  arena.base = malloc(arena.size);
+  arena.used = 0;
+
   if (strcmp(meth[0],"evencol")==0 || strcmp(meth[0],"evenboth")==0)
   { method = strcmp(meth[0],"evencol")==0 ? Evencol : Evenboth;
     if (!meth[1])
-    { usage();
+    { free(arena.base);
+      usage();
     }
-    d = distrib_create(meth[1]);
+    d = distrib_create(&arena, meth[1]);
     if (d==0)
-    { usage();
+    { free(arena.base);
+      usage();
     }
     if (meth[2])
     { if (strcmp(meth[2],"no4cycle")==0)
       { no4cycle = 1;
         if (meth[3])
-        { usage();
+        { free(arena.base);
+          usage();
         }
       }
       else
-      { usage();
+      { free(arena.base);
+        usage();
       }
     }
   }
   else
-  { usage();
+  { free(arena.base);
+    usage();
   }
 
   /* Check for some problems. */
@@ -108,24 +118,27 @@ int main
   { fprintf(stderr,
       "At least one checks per bit (%d) is greater than total checks (%d)\n",
       distrib_max(d), M);
+    free(arena.base);
     exit(1);
   }
 
   if (distrib_max(d)==M && N>1 && no4cycle)
   { fprintf(stderr,
       "Can't eliminate cycles of length four with this many checks per bit\n");
+    free(arena.base);
     exit(1);
   } 
 
   /* Make the parity check matrix. */
 
-  make_ldpc(seed,method,d,no4cycle,&H,M,N);
+  make_ldpc(&arena, seed,method,d,no4cycle,&H,M,N);
 
   /* Write out the parity check matrix. */
 
   f = open_file_std(file,"wb");
   if (f==NULL) 
   { fprintf(stderr,"Can't create parity check file: %s\n",file);
+    free(arena.base);
     exit(1);
   }
 
@@ -133,8 +146,11 @@ int main
   
   if (ferror(f) || !mod2sparse_write(f,H) || fclose(f)!=0)
   { fprintf(stderr,"Error writing to parity check file %s\n",file);
+    free(arena.base);
     exit(1);
   }
+
+  free(arena.base);
 
   return 0;
 }
@@ -155,7 +171,8 @@ void usage(void)
 /* CREATE A SPARSE PARITY-CHECK MATRIX.  Of size M by N, stored in H. */
 
 void make_ldpc
-( int seed,		/* Random number seed */
+( Arena *arena,
+  int seed,		/* Random number seed */
   make_method method,	/* How to make it */
   distrib *d,		/* Distribution list specified */
   int no4cycle,		/* Eliminate cycles of length four? */
@@ -171,8 +188,8 @@ void make_ldpc
 
   rand_seed(10*seed+1);
 
-  *H = mod2sparse_allocate(M,N);
-  part = column_partition(d,N);
+  *H = mod2sparse_allocate(arena, M,N);
+  part = column_partition(arena, d,N);
 
   /* Create the initial version of the parity check matrix. */
 
@@ -195,7 +212,7 @@ void make_ldpc
         { do
           { i = rand_int(M);
           } while (mod2sparse_find(*H,i,j));
-          mod2sparse_insert(*H,i,j);
+          mod2sparse_insert(arena, *H,i,j);
         }
         left -= 1;
       }
@@ -210,7 +227,7 @@ void make_ldpc
       { cb_N += distrib_num(d,z) * part[z];
       }
       
-      u = chk_alloc (cb_N, sizeof *u);
+      u = chk_alloc (arena, cb_N, sizeof *u);
 
       for (k = cb_N-1; k>=0; k--)
       { u[k] = k%M;
@@ -240,13 +257,13 @@ void make_ldpc
             do
             { i = rand_int(M);
             } while (mod2sparse_find(*H,i,j));
-            mod2sparse_insert(*H,i,j);
+            mod2sparse_insert(arena, *H,i,j);
           }
           else
           { do
             { i = t + rand_int(cb_N-t);
             } while (mod2sparse_find(*H,u[i],j));
-            mod2sparse_insert(*H,u[i],j);
+            mod2sparse_insert(arena, *H,u[i],j);
             u[i] = u[t];
             t += 1;
           }
@@ -273,7 +290,7 @@ void make_ldpc
   { e = mod2sparse_first_in_row(*H,i);
     if (mod2sparse_at_end(e))
     { j = rand_int(N);
-      e = mod2sparse_insert(*H,i,j);
+      e = mod2sparse_insert(arena, *H,i,j);
       added += 1;
     }
     e = mod2sparse_first_in_row(*H,i);
@@ -281,7 +298,7 @@ void make_ldpc
     { do 
       { j = rand_int(N); 
       } while (j==mod2sparse_col(e));
-      mod2sparse_insert(*H,i,j);
+      mod2sparse_insert(arena, *H,i,j);
       added += 1;
     }
   }
@@ -312,7 +329,7 @@ void make_ldpc
       { i = rand_int(M);
         j = rand_int(N);
       } while (mod2sparse_find(*H,i,j));
-      mod2sparse_insert(*H,i,j);
+      mod2sparse_insert(arena, *H,i,j);
     }
     fprintf(stderr,
  "Added %d extra bit-checks to try to avoid problems from even column counts\n",
@@ -347,7 +364,7 @@ void make_ldpc
                   { i = rand_int(M);
                   } while (mod2sparse_find(*H,i,j));
                   mod2sparse_delete(*H,e);
-                  mod2sparse_insert(*H,i,j);
+                  mod2sparse_insert(arena, *H,i,j);
                   elim4 += 1;
                   k += 1;
                   goto nextj;
@@ -381,7 +398,8 @@ void make_ldpc
    to the entries in the distribution passed. */
 
 int *column_partition
-( distrib *d,		/* List of proportions and number of check-bits */
+( Arena *arena,
+  distrib *d,		/* List of proportions and number of check-bits */
   int n			/* Total number of columns to partition */
 )
 {
@@ -390,8 +408,9 @@ int *column_partition
   int cur, used;
   int i, j;
 
-  trunc = chk_alloc (distrib_size(d), sizeof(double));
-  part = chk_alloc (distrib_size(d), sizeof(int));
+  part = chk_alloc (arena, distrib_size(d), sizeof(int));
+  size_t snapshot = arena->used;
+  trunc = chk_alloc (arena, distrib_size(d), sizeof(double));
 
   used = 0;
   for (i = 0; i<distrib_size(d); i++)
@@ -417,6 +436,6 @@ int *column_partition
     trunc[cur] = -1;
   }
 
-  free(trunc);
+  arena->used = snapshot; // free trunc
   return part;
 }

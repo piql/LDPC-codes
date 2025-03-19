@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "alloc.h"
 #include "mod2sparse.h"
 #include "mod2dense.h"
 #include "mod2convert.h"
@@ -32,6 +33,7 @@ int main
   char **argv
 )
 {
+  Arena arena;
   mod2dense *D;
   mod2sparse *T;
 
@@ -65,23 +67,27 @@ int main
   { usage();
   }
 
-  H = read_pchk(pchk_file, &dim);
+  arena.size = 16 * 1024 * 1024;
+  arena.base = malloc(arena.size);
+  arena.used = 0;
+
+  H = read_pchk(&arena, pchk_file, &dim);
 
   if (trans)
-  { T = mod2sparse_allocate(dim.N,dim.M);
-    mod2sparse_transpose(H,T);
+  { T = mod2sparse_allocate(&arena, dim.N,dim.M);
+    mod2sparse_transpose(&arena, H,T);
   }
 
   if (dprint)
   { if (trans)
-    { D = mod2dense_allocate(dim.N,dim.M);
+    { D = mod2dense_allocate(&arena, dim.N,dim.M);
       mod2sparse_to_dense(T,D);
       printf("\nTranspose of parity check matrix in %s (dense format):\n\n",
              pchk_file);
       mod2dense_print(stdout,D);
     }
     else
-    { D = mod2dense_allocate(dim.M,dim.N);
+    { D = mod2dense_allocate(&arena, dim.M,dim.N);
       mod2sparse_to_dense(H,D);
       printf("\nParity check matrix in %s (dense format):\n\n",pchk_file);
       mod2dense_print(stdout,D);
@@ -100,6 +106,8 @@ int main
   }
 
   printf("\n");
+
+  free(arena.base);
 
   return 0;
 }

@@ -29,7 +29,8 @@
    program is terminated. */
 
 mod2sparse *read_pchk
-( char *pchk_file,
+( Arena *arena,
+  char *pchk_file,
   pchk_dimensions *dim /* (out) Parity check matrix dimensions (rows, columns) */
 )
 {
@@ -46,7 +47,7 @@ mod2sparse *read_pchk
     exit(1);
   }
 
-  mod2sparse *H = mod2sparse_read(f);
+  mod2sparse *H = mod2sparse_read(arena, f);
 
   if (H==0)
   { fprintf(stderr,"Error reading parity check matrix from %s\n",pchk_file);
@@ -72,7 +73,8 @@ mod2sparse *read_pchk
    and the program is terminated. */
 
 void read_gen
-( char *gen_file,	/* Name of generator matrix file */
+( Arena *arena,
+  char *gen_file,	/* Name of generator matrix file */
   int cols_only,	/* Read only column ordering? */
   int no_pchk_file,	/* No parity check file used? */
   gen_matrix *gm /* Generator matrix. Dimensions must be set unles no_pchk_file is 1 */
@@ -112,8 +114,8 @@ void read_gen
     }
   }
 
-  gm->cols = chk_alloc (gm->dim.N, sizeof *gm->cols);
-  gm->data.sparse.rows = chk_alloc (gm->dim.M, sizeof *(gm->data.sparse.rows));
+  gm->cols = chk_alloc (arena, gm->dim.N, sizeof *gm->cols);
+  gm->data.sparse.rows = chk_alloc (arena, gm->dim.M, sizeof *(gm->data.sparse.rows));
 
   for (i = 0; i<gm->dim.N; i++)
   { gm->cols[i] = intio_read(f);
@@ -131,8 +133,8 @@ void read_gen
           if (feof(f) || ferror(f)) goto error;
         }
 
-        if ((gm->data.sparse.L = mod2sparse_read(f)) == 0) goto error;
-        if ((gm->data.sparse.U = mod2sparse_read(f)) == 0) goto error;
+        if ((gm->data.sparse.L = mod2sparse_read(arena, f)) == 0) goto error;
+        if ((gm->data.sparse.U = mod2sparse_read(arena, f)) == 0) goto error;
   
         if (mod2sparse_rows(gm->data.sparse.L)!=gm->dim.M || mod2sparse_cols(gm->data.sparse.L)!=gm->dim.M) goto garbled;
         if (mod2sparse_rows(gm->data.sparse.U)!=gm->dim.M || mod2sparse_cols(gm->data.sparse.U)<gm->dim.M) goto garbled;
@@ -142,7 +144,7 @@ void read_gen
   
       case 'd':
       {
-        if ((gm->data.G = mod2dense_read(f)) == 0) goto error;
+        if ((gm->data.G = mod2dense_read(arena, f)) == 0) goto error;
   
         if (mod2dense_rows(gm->data.G)!=gm->dim.M || mod2dense_cols(gm->data.G)!=gm->dim.N-gm->dim.M) goto garbled;
   
@@ -151,7 +153,7 @@ void read_gen
   
       case 'm':
       {
-        if ((gm->data.G = mod2dense_read(f)) == 0) goto error;
+        if ((gm->data.G = mod2dense_read(arena, f)) == 0) goto error;
   
         if (mod2dense_rows(gm->data.G)!=gm->dim.M || mod2dense_cols(gm->data.G)!=gm->dim.M) goto garbled;
   

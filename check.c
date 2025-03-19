@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <math.h>
 
+#include "alloc.h"
 #include "mod2sparse.h"
 #include "check.h"
 

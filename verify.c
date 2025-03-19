@@ -35,6 +35,7 @@ int main
   char **argv
 )
 {
+  Arena arena;
   char *coded_file, *source_file;
   char *pchk_file, *gen_file;
   int table;
@@ -49,6 +50,8 @@ int main
 
   mod2sparse *H;
   gen_matrix gm;
+
+  srcf = NULL;
 
   /* Look at arguments. */
 
@@ -87,9 +90,13 @@ int main
     exit(1);
   }
 
+  arena.size = 16 * 1024 * 1024;
+  arena.base = malloc(arena.size);
+  arena.used = 0;
+
   /* Read parity check file. */
 
-  H = read_pchk(pchk_file, &gm.dim);
+  H = read_pchk(&arena, pchk_file, &gm.dim);
 
   if (gm.dim.N<=gm.dim.M)
   { fprintf(stderr,
@@ -101,7 +108,7 @@ int main
      out which are the message bits. */
 
   if (gen_file!=0)
-  { read_gen(gen_file,1,0, &gm);
+  { read_gen(&arena, gen_file,1,0, &gm);
   }
 
   /* Open coded file to check. */
@@ -123,9 +130,9 @@ int main
     }
   }
 
-  sblk = chk_alloc (gm.dim.N-gm.dim.M, sizeof *sblk);
-  cblk = chk_alloc (gm.dim.N, sizeof *cblk);
-  chks = chk_alloc (gm.dim.M, sizeof *chks);
+  sblk = chk_alloc (&arena, gm.dim.N-gm.dim.M, sizeof *sblk);
+  cblk = chk_alloc (&arena, gm.dim.N, sizeof *cblk);
+  chks = chk_alloc (&arena, gm.dim.M, sizeof *chks);
 
   /* Print header for table. */
 

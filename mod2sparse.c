@@ -32,7 +32,8 @@
    of entries is allocated. */
 
 static mod2entry *alloc_entry
-( mod2sparse *m
+( Arena *arena,
+  mod2sparse *m
 )
 { 
   mod2block *b;
@@ -41,7 +42,7 @@ static mod2entry *alloc_entry
 
   if (m->next_free==0)
   { 
-    b = chk_alloc (1, sizeof *b);
+    b = chk_alloc (arena, 1, sizeof *b);
 
     b->next = m->blocks;
     m->blocks = b;
@@ -65,8 +66,9 @@ static mod2entry *alloc_entry
 /* ALLOCATE SPACE FOR A SPARSE MOD2 MATRIX.  */
 
 mod2sparse *mod2sparse_allocate
-( int n_rows, 		/* Number of rows in matrix */
-  int n_cols		/* Number of columns in matrix */
+( Arena *arena, /* Allocator */
+  int n_rows, /* Number of rows in matrix */
+  int n_cols /* Number of columns in matrix */
 )
 {
   mod2sparse *m;
@@ -78,13 +80,13 @@ mod2sparse *mod2sparse_allocate
     exit(1);
   }
 
-  m = chk_alloc (1, sizeof *m);
+  m = chk_alloc (arena, 1, sizeof *m);
 
   m->n_rows = n_rows;
   m->n_cols = n_cols;
 
-  m->rows = chk_alloc (n_rows, sizeof *m->rows);
-  m->cols = chk_alloc (n_cols, sizeof *m->cols);
+  m->rows = chk_alloc (arena, n_rows, sizeof *m->rows);
+  m->cols = chk_alloc (arena, n_cols, sizeof *m->cols);
 
   m->blocks = 0;
   m->next_free = 0;
@@ -102,25 +104,6 @@ mod2sparse *mod2sparse_allocate
   }
 
   return m;
-}
-
-
-/* FREE SPACE OCCUPIED BY A SPARSE MOD2 MATRIX. */
-
-void mod2sparse_free
-( mod2sparse *m		/* Matrix to free */
-)
-{ 
-  mod2block *b;
-
-  free(m->rows);
-  free(m->cols);
-
-  while (m->blocks!=0)
-  { b = m->blocks;
-    m->blocks = b->next;
-    free(b);
-  }
 }
 
 
@@ -147,7 +130,6 @@ void mod2sparse_clear
   while (r->blocks!=0)
   { b = r->blocks;
     r->blocks = b->next;
-    free(b);
   }
 }
 
@@ -155,7 +137,8 @@ void mod2sparse_clear
 /* COPY A SPARSE MATRIX. */
 
 void mod2sparse_copy
-( mod2sparse *m,	/* Matrix to copy */
+( Arena *arena,
+  mod2sparse *m,	/* Matrix to copy */
   mod2sparse *r		/* Place to store copy of matrix */
 )
 {
@@ -175,7 +158,7 @@ void mod2sparse_copy
     e = mod2sparse_first_in_row(m,i); 
 
     while (!mod2sparse_at_end(e))
-    { f = mod2sparse_insert(r,e->row,e->col);
+    { f = mod2sparse_insert(arena, r,e->row,e->col);
       f->lr = e->lr;
       f->pr = e->pr;
       e = mod2sparse_next_in_row(e);
@@ -187,7 +170,8 @@ void mod2sparse_copy
 /* COPY ROWS OF A SPARSE MOD2 MATRIX. */
 
 void mod2sparse_copyrows
-( mod2sparse *m,	/* Matrix to copy */
+( Arena *arena,
+  mod2sparse *m,	/* Matrix to copy */
   mod2sparse *r,	/* Place to store copy of matrix */
   int *rows		/* Indexes of rows to copy, from 0 */
 )
@@ -210,7 +194,7 @@ void mod2sparse_copyrows
     }
     e = mod2sparse_first_in_row(m,rows[i]);
     while (!mod2sparse_at_end(e))
-    { mod2sparse_insert(r,i,e->col);
+    { mod2sparse_insert(arena, r,i,e->col);
       e = mod2sparse_next_in_row(e);
     }
   }
@@ -220,7 +204,8 @@ void mod2sparse_copyrows
 /* COPY COLUMNS OF A SPARSE MOD2 MATRIX. */
 
 void mod2sparse_copycols
-( mod2sparse *m,	/* Matrix to copy */
+( Arena *arena,
+  mod2sparse *m,	/* Matrix to copy */
   mod2sparse *r,	/* Place to store copy of matrix */
   int *cols		/* Indexes of columns to copy, from 0 */
 )
@@ -243,7 +228,7 @@ void mod2sparse_copycols
     }
     e = mod2sparse_first_in_col(m,cols[j]);
     while (!mod2sparse_at_end(e))
-    { mod2sparse_insert(r,e->row,j);
+    { mod2sparse_insert(arena, r,e->row,j);
       e = mod2sparse_next_in_col(e);
     }
   }
@@ -335,7 +320,8 @@ int mod2sparse_write
 /* READ A SPARSE MOD2 MATRIX STORED IN MACHINE-READABLE FORM FROM A FILE. */
 
 mod2sparse *mod2sparse_read
-( FILE *f
+( Arena *arena,
+  FILE *f
 )
 {
   int n_rows, n_cols;
@@ -348,7 +334,7 @@ mod2sparse *mod2sparse_read
   n_cols = intio_read(f);
   if (feof(f) || ferror(f) || n_cols<=0) return 0;
 
-  m = mod2sparse_allocate(n_rows,n_cols);
+  m = mod2sparse_allocate(arena, n_rows,n_cols);
 
   row = -1;
 
@@ -368,14 +354,13 @@ mod2sparse *mod2sparse_read
     { col = v-1;
       if (col>=n_cols) break;
       if (row==-1) break;
-      mod2sparse_insert(m,row,col);
+      mod2sparse_insert(arena, m,row,col);
     }
   }
 
   /* Error if we get here. */
 
-  mod2sparse_free(m);
-  return 0;   
+  return 0;
 }
 
 
@@ -442,7 +427,8 @@ mod2entry *mod2sparse_find
 /* INSERT AN ENTRY WITH GIVEN ROW AND COLUMN. */
 
 mod2entry *mod2sparse_insert
-( mod2sparse *m,
+( Arena *arena,
+  mod2sparse *m,
   int row,
   int col
 )
@@ -483,7 +469,7 @@ mod2entry *mod2sparse_insert
     }
   }
 
-  ne = alloc_entry(m);
+  ne = alloc_entry(arena, m);
 
   ne->row = row;
   ne->col = col;
@@ -607,7 +593,8 @@ int mod2sparse_equal
 /* COMPUTE THE TRANSPOSE OF A SPARSE MOD2 MATRIX. */
 
 void mod2sparse_transpose
-( mod2sparse *m,	/* Matrix to compute transpose of (left unchanged) */
+( Arena *arena,
+  mod2sparse *m,	/* Matrix to compute transpose of (left unchanged) */
   mod2sparse *r		/* Result of transpose operation */
 )
 {
@@ -634,7 +621,7 @@ void mod2sparse_transpose
     e = mod2sparse_first_in_row(m,i);
 
     while (!mod2sparse_at_end(e))
-    { mod2sparse_insert(r,mod2sparse_col(e),i);
+    { mod2sparse_insert(arena, r,mod2sparse_col(e),i);
       e = mod2sparse_next_in_row(e);
     }
   }
@@ -644,7 +631,8 @@ void mod2sparse_transpose
 /* ADD TWO SPARSE MOD2 MATRICES. */
 
 void mod2sparse_add
-( mod2sparse *m1,	/* Left operand of add */
+( Arena *arena,
+  mod2sparse *m1,	/* Left operand of add */
   mod2sparse *m2,	/* Right operand of add */
   mod2sparse *r		/* Place to store result of add */
 )
@@ -681,23 +669,23 @@ void mod2sparse_add
       }
 
       else if (mod2sparse_col(e1)<mod2sparse_col(e2))
-      { mod2sparse_insert(r,i,mod2sparse_col(e1));
+      { mod2sparse_insert(arena, r,i,mod2sparse_col(e1));
         e1 = mod2sparse_next_in_row(e1);
       }
 
       else
-      { mod2sparse_insert(r,i,mod2sparse_col(e2));
+      { mod2sparse_insert(arena, r,i,mod2sparse_col(e2));
         e2 = mod2sparse_next_in_row(e2);       
       }
     }
 
     while (!mod2sparse_at_end(e1))
-    { mod2sparse_insert(r,i,mod2sparse_col(e1));
+    { mod2sparse_insert(arena, r,i,mod2sparse_col(e1));
       e1 = mod2sparse_next_in_row(e1);
     }
 
     while (!mod2sparse_at_end(e2))
-    { mod2sparse_insert(r,i,mod2sparse_col(e2));
+    { mod2sparse_insert(arena, r,i,mod2sparse_col(e2));
       e2 = mod2sparse_next_in_row(e2);
     }
   }
@@ -707,7 +695,8 @@ void mod2sparse_add
 /* MULTIPLY TWO SPARSE MOD2 MATRICES. */
 
 void mod2sparse_multiply 
-( mod2sparse *m1, 	/* Left operand of multiply */
+( Arena *arena,
+  mod2sparse *m1, 	/* Left operand of multiply */
   mod2sparse *m2,	/* Right operand of multiply */
   mod2sparse *r		/* Place to store result of multiply */
 )
@@ -762,7 +751,7 @@ void mod2sparse_multiply
       }
 
       if (b)
-      { mod2sparse_insert(r,i,j);
+      { mod2sparse_insert(arena, r,i,j);
       }
     }
   }
@@ -855,7 +844,8 @@ int mod2sparse_count_col
 /* ADD TO A ROW. */
 
 void mod2sparse_add_row
-( mod2sparse *m1,	/* Matrix containing row to add to */
+( Arena *arena,
+  mod2sparse *m1,	/* Matrix containing row to add to */
   int row1,		/* Index in this matrix of row to add to */
   mod2sparse *m2,	/* Matrix containing row to add from */
   int row2		/* Index in this matrix of row to add from */
@@ -880,7 +870,7 @@ void mod2sparse_add_row
 
   while (!mod2sparse_at_end(f1) && !mod2sparse_at_end(f2))
   { if (mod2sparse_col(f1)>mod2sparse_col(f2))
-    { mod2sparse_insert(m1,row1,mod2sparse_col(f2));
+    { mod2sparse_insert(arena, m1,row1,mod2sparse_col(f2));
       f2 = mod2sparse_next_in_row(f2);
     }
     else
@@ -894,7 +884,7 @@ void mod2sparse_add_row
   }
 
   while (!mod2sparse_at_end(f2))
-  { mod2sparse_insert(m1,row1,mod2sparse_col(f2));
+  { mod2sparse_insert(arena, m1,row1,mod2sparse_col(f2));
     f2 = mod2sparse_next_in_row(f2);
   }
 }
@@ -903,7 +893,8 @@ void mod2sparse_add_row
 /* ADD TO A COLUMN. */
 
 void mod2sparse_add_col
-( mod2sparse *m1,	/* Matrix containing column to add to */
+( Arena *arena,
+  mod2sparse *m1,	/* Matrix containing column to add to */
   int col1,		/* Index in this matrix of column to add to */
   mod2sparse *m2,	/* Matrix containing column to add from */
   int col2		/* Index in this matrix of column to add from */
@@ -928,7 +919,7 @@ void mod2sparse_add_col
 
   while (!mod2sparse_at_end(f1) && !mod2sparse_at_end(f2))
   { if (mod2sparse_row(f1)>mod2sparse_row(f2))
-    { mod2sparse_insert(m1,mod2sparse_row(f2),col1);
+    { mod2sparse_insert(arena, m1,mod2sparse_row(f2),col1);
       f2 = mod2sparse_next_in_col(f2);
     }
     else
@@ -942,7 +933,7 @@ void mod2sparse_add_col
   }
 
   while (!mod2sparse_at_end(f2))
-  { mod2sparse_insert(m1,mod2sparse_row(f2),col1);
+  { mod2sparse_insert(arena, m1,mod2sparse_row(f2),col1);
     f2 = mod2sparse_next_in_col(f2);
   }
 }
@@ -951,7 +942,8 @@ void mod2sparse_add_col
 /* FIND AN LU DECOMPOSITION OF A SPARSE MATRIX. */
 
 int mod2sparse_decomp
-( mod2sparse *A,	/* Input matrix, M by N */
+( Arena *arena, /* Allocator */
+  mod2sparse *A,	/* Input matrix, M by N */
   int K,		/* Size of sub-matrix to find LU decomposition of */
   mod2sparse *L,	/* Matrix in which L is stored, M by K */
   mod2sparse *U,	/* Matrix in which U is stored, K by N */
@@ -988,15 +980,15 @@ int mod2sparse_decomp
     exit(1);
   }
 
-  rinv = chk_alloc (M, sizeof *rinv);
-  cinv = chk_alloc (N, sizeof *cinv);
+  rinv = chk_alloc (arena, M, sizeof *rinv);
+  cinv = chk_alloc (arena, N, sizeof *cinv);
 
   if (abandon_number>0)
-  { acnt = chk_alloc (M+1, sizeof *acnt);
+  { acnt = chk_alloc (arena, M+1, sizeof *acnt);
   }
 
   if (strategy==Mod2sparse_minprod)
-  { rcnt = chk_alloc (M, sizeof *rcnt);
+  { rcnt = chk_alloc (arena, M, sizeof *rcnt);
   }
 
   mod2sparse_clear(L);
@@ -1004,8 +996,8 @@ int mod2sparse_decomp
 
   /* Copy A to B.  B will be modified, then discarded. */
 
-  B = mod2sparse_allocate(M,N);
-  mod2sparse_copy(A,B);
+  B = mod2sparse_allocate(arena, M,N);
+  mod2sparse_copy(arena, A,B);
 
   /* Count 1s in rows of B, if using minprod strategy. */
 
@@ -1142,18 +1134,18 @@ int mod2sparse_decomp
       k = mod2sparse_row(f);
 
       if (rinv[k]>i)
-      { mod2sparse_add_row(B,k,B,mod2sparse_row(e));
+      { mod2sparse_add_row(arena, B,k,B,mod2sparse_row(e));
         if (strategy==Mod2sparse_minprod) 
         { rcnt[k] = mod2sparse_count_row(B,k);
         }
-        mod2sparse_insert(L,k,i);
+        mod2sparse_insert(arena, L,k,i);
       }
       else if (rinv[k]<i)
-      { mod2sparse_insert(U,rinv[k],cols[i]);
+      { mod2sparse_insert(arena, U,rinv[k],cols[i]);
       }
       else
-      { mod2sparse_insert(L,k,i);
-        mod2sparse_insert(U,i,cols[i]);
+      { mod2sparse_insert(arena, L,k,i);
+        mod2sparse_insert(arena, U,i,cols[i]);
       }
 
       f = fn;
@@ -1220,12 +1212,6 @@ int mod2sparse_decomp
       mod2sparse_delete(L,f);
     }
   }
-
-  mod2sparse_free(B);
-  free(rinv);
-  free(cinv);
-  if (strategy==Mod2sparse_minprod) free(rcnt);
-  if (abandon_number>0) free(acnt);
 
   return nnf;
 }

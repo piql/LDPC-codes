@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "alloc.h"
 #include "mod2dense.h"
 #include "mod2sparse.h"
 #include "mod2convert.h"
@@ -33,21 +34,26 @@
 
 int main(void)
 {
+  Arena arena;
   mod2sparse *sm1, *sm2;
   mod2dense *dm1, *dm2;
   int i;
 
-  sm1 = mod2sparse_allocate(Rows,Cols);
-  sm2 = mod2sparse_allocate(Rows,Cols);
+  arena.size = 16 * 1024 * 1024;
+  arena.base = malloc(arena.size);
+  arena.used = 0;
 
-  dm1 = mod2dense_allocate(Rows,Cols);
-  dm2 = mod2dense_allocate(Rows,Cols);
+  sm1 = mod2sparse_allocate(&arena, Rows,Cols);
+  sm2 = mod2sparse_allocate(&arena, Rows,Cols);
+
+  dm1 = mod2dense_allocate(&arena, Rows,Cols);
+  dm2 = mod2dense_allocate(&arena, Rows,Cols);
 
   printf("\nCreating sparse matrix.\n"); 
   fflush(stdout);
 
   for (i = 0; i<N; i++)
-  { mod2sparse_insert(sm1,rand_int(Rows),rand_int(Cols));
+  { mod2sparse_insert(&arena, sm1,rand_int(Rows),rand_int(Cols));
   }
 
   printf("Converting from sparse to dense.\n");
@@ -58,7 +64,7 @@ int main(void)
   printf("Converting back to dense again.\n");
   fflush(stdout);
 
-  mod2dense_to_sparse(dm1,sm2);
+  mod2dense_to_sparse(&arena, dm1,sm2);
 
   printf("Testing for equality of two sparse matrices: %s.\n",
     mod2sparse_equal(sm1,sm2) ? "OK" : "NOT OK");
@@ -74,6 +80,8 @@ int main(void)
   fflush(stdout);
 
   printf("\nDONE WITH TESTS.\n");
+
+  free(arena.base);
 
   exit(0);
 }

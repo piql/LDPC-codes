@@ -77,6 +77,8 @@ int main
   int i, n;
 
   bins = 0;
+  high = 0;
+  low = 0;
   p1 = 0;
   p2 = 0;
 

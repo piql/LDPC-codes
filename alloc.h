@@ -14,5 +14,12 @@
  */
 
 
-void *chk_alloc (unsigned, unsigned);	/* Calls 'calloc' and exits with error
-                                           if it fails */
+typedef struct
+{
+    void *base;
+    size_t size;
+    size_t used;
+} Arena;
+
+
+void *chk_alloc (Arena *, unsigned, unsigned);	/* Exits with error if it fails */

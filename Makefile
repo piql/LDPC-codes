@@ -30,11 +30,12 @@ tests = mod2dense-test mod2sparse-test mod2convert-test rand-test
 
 tests: $(tests)
 
-CFLAGS += -Wall -Wextra -Wpedantic -Wmissing-prototypes
+CFLAGS += -Wall -Wextra -Wpedantic -Wmissing-prototypes -Werror
 CFLAGS += -O2
 CFLAGS += -g
 CFLAGS += -std=c99
 LOADLIBES += -lm
+#-fsanitize=address,undefined,leak
 
 ofiles = alloc.o blockio.o channel.o check.o dec.o distrib.o enc.o	\
   intio.o mod2convert.o mod2dense.o mod2sparse.o open.o rand.o rcode.o

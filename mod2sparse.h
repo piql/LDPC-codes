@@ -111,25 +111,25 @@ typedef enum
 
 /* PROCEDURES TO MANIPULATE SPARSE MATRICES. */
 
-mod2sparse *mod2sparse_allocate (int, int);
+mod2sparse *mod2sparse_allocate (Arena *, int, int);
 void mod2sparse_free            (mod2sparse *);
 
 void mod2sparse_clear    (mod2sparse *);
-void mod2sparse_copy     (mod2sparse *, mod2sparse *);
-void mod2sparse_copyrows (mod2sparse *, mod2sparse *, int *);
-void mod2sparse_copycols (mod2sparse *, mod2sparse *, int *);
+void mod2sparse_copy     (Arena *, mod2sparse *, mod2sparse *);
+void mod2sparse_copyrows (Arena *, mod2sparse *, mod2sparse *, int *);
+void mod2sparse_copycols (Arena *, mod2sparse *, mod2sparse *, int *);
 
 void mod2sparse_print       (FILE *, mod2sparse *);
 int  mod2sparse_write       (FILE *, mod2sparse *);
-mod2sparse *mod2sparse_read (FILE *);
+mod2sparse *mod2sparse_read (Arena *, FILE *);
 
 mod2entry *mod2sparse_find   (mod2sparse *, int, int);
-mod2entry *mod2sparse_insert (mod2sparse *, int, int);
+mod2entry *mod2sparse_insert (Arena *, mod2sparse *, int, int);
 void mod2sparse_delete       (mod2sparse *, mod2entry *);
 
-void mod2sparse_transpose (mod2sparse *, mod2sparse *);
-void mod2sparse_add       (mod2sparse *, mod2sparse *, mod2sparse *);
-void mod2sparse_multiply  (mod2sparse *, mod2sparse *, mod2sparse *);
+void mod2sparse_transpose (Arena *, mod2sparse *, mod2sparse *);
+void mod2sparse_add       (Arena *, mod2sparse *, mod2sparse *, mod2sparse *);
+void mod2sparse_multiply  (Arena *, mod2sparse *, mod2sparse *, mod2sparse *);
 void mod2sparse_mulvec    (mod2sparse *, char *, char *);
 
 int mod2sparse_equal (mod2sparse *, mod2sparse *);
@@ -137,10 +137,10 @@ int mod2sparse_equal (mod2sparse *, mod2sparse *);
 int mod2sparse_count_row (mod2sparse *, int);
 int mod2sparse_count_col (mod2sparse *, int);
 
-void mod2sparse_add_row (mod2sparse *, int, mod2sparse *, int);
-void mod2sparse_add_col (mod2sparse *, int, mod2sparse *, int);
+void mod2sparse_add_row (Arena *, mod2sparse *, int, mod2sparse *, int);
+void mod2sparse_add_col (Arena *, mod2sparse *, int, mod2sparse *, int);
 
-int mod2sparse_decomp (mod2sparse *, int, mod2sparse *, mod2sparse *, 
+int mod2sparse_decomp (Arena *, mod2sparse *, int, mod2sparse *, mod2sparse *, 
                        int *, int *, mod2sparse_strategy, int, int);
 
 int mod2sparse_forward_sub  (mod2sparse *, int *, char *, char *);

@@ -34,6 +34,7 @@ int main
   char **argv
 )
 {
+  Arena arena;
   char *alist_file, *pchk_file;
   FILE *af;
   int mxrw, mxcw;
@@ -74,13 +75,17 @@ int main
   pchk_file = argv[1];
   alist_file = argv[2];
 
-  H = read_pchk(pchk_file, &dim);
+  arena.size = 16 * 1024 * 1024;
+  arena.base = malloc(arena.size);
+  arena.used = 0;
+
+  H = read_pchk(&arena, pchk_file, &dim);
 
   if (trans)
   { mod2sparse *HT;
     HT = H;
-    H = mod2sparse_allocate(dim.N,dim.M);
-    mod2sparse_transpose(HT,H);
+    H = mod2sparse_allocate(&arena, dim.N,dim.M);
+    mod2sparse_transpose(&arena, HT,H);
     dim.M = mod2sparse_rows(H);
     dim.N = mod2sparse_cols(H);
   }
@@ -94,7 +99,7 @@ int main
 
   fprintf(af,"%d %d\n",dim.M,dim.N);
 
-  rw = (int *) chk_alloc (dim.M, sizeof *rw);
+  rw = (int *) chk_alloc (&arena, dim.M, sizeof *rw);
   mxrw = 0;
 
   for (i = 0; i<dim.M; i++)
@@ -104,7 +109,7 @@ int main
     }
   }
 
-  cw = (int *) chk_alloc (dim.N, sizeof *cw);
+  cw = (int *) chk_alloc (&arena, dim.N, sizeof *cw);
   mxcw = 0;
 
   for (j = 0; j<dim.N; j++)

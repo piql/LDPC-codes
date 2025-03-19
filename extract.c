@@ -34,6 +34,7 @@ int main
   char **argv
 )
 {
+  Arena arena;
   char *gen_file, *coded_file, *ext_file;
   FILE *codef, *extf;
   char *cblk;
@@ -56,10 +57,14 @@ int main
     exit(1);
   }
 
+  arena.size = 16 * 1024 * 1024;
+  arena.base = malloc(arena.size);
+  arena.used = 0;
+
   /* Read generator matrix file, up to the point of finding out which
      are the message bits. */
   
-  read_gen(gen_file,1,1,&gm);
+  read_gen(&arena, gen_file,1,1,&gm);
 
   /* Open decoded file. */
 
@@ -77,7 +82,7 @@ int main
     exit(1);
   }
 
-  cblk = chk_alloc (gm.dim.N, sizeof *cblk);
+  cblk = chk_alloc (&arena, gm.dim.N, sizeof *cblk);
 
   for (;;)
   { 

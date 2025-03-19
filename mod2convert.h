@@ -15,4 +15,4 @@
 
 
 void mod2sparse_to_dense (mod2sparse *, mod2dense *);
-void mod2dense_to_sparse (mod2dense *, mod2sparse *);
+void mod2dense_to_sparse (Arena *, mod2dense *, mod2sparse *);

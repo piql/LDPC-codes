@@ -39,6 +39,7 @@ int main
   char **argv
 )
 {
+  Arena arena;
   char *pchk_file, *rfile, *dfile, *pfile;
   char **meth;
   FILE *rf, *df, *pf;
@@ -167,9 +168,13 @@ int main
     exit(1);
   }
 
+  arena.size = 16 * 1024 * 1024;
+  arena.base = malloc(arena.size);
+  arena.used = 0;
+
   /* Read parity check file. */
 
-  H = read_pchk(pchk_file, &gm.dim);
+  H = read_pchk(&arena, pchk_file, &gm.dim);
 
   if (gm.dim.N<=gm.dim.M)
   { fprintf(stderr,
@@ -207,15 +212,15 @@ int main
 
   switch (channel)
   { case BSC:
-    { bsc_data = chk_alloc (gm.dim.N, sizeof *bsc_data);
+    { bsc_data = chk_alloc (&arena, gm.dim.N, sizeof *bsc_data);
       break;
     }
     case AWGN: case AWLN:
-    { awn_data = chk_alloc (gm.dim.N, sizeof *awn_data);
+    { awn_data = chk_alloc (&arena, gm.dim.N, sizeof *awn_data);
       break;
     }
     case MISC:
-    { misc_data = chk_alloc (gm.dim.N, sizeof *misc_data);
+    { misc_data = chk_alloc (&arena, gm.dim.N, sizeof *misc_data);
       break;
     }
     default:
@@ -225,10 +230,10 @@ int main
 
   /* Allocate other space. */
 
-  dblk   = chk_alloc (gm.dim.N, sizeof *dblk);
-  lratio = chk_alloc (gm.dim.N, sizeof *lratio);
-  pchk   = chk_alloc (gm.dim.M, sizeof *pchk);
-  bitpr  = chk_alloc (gm.dim.N, sizeof *bitpr);
+  dblk   = chk_alloc (&arena, gm.dim.N, sizeof *dblk);
+  lratio = chk_alloc (&arena, gm.dim.N, sizeof *lratio);
+  pchk   = chk_alloc (&arena, gm.dim.M, sizeof *pchk);
+  bitpr  = chk_alloc (&arena, gm.dim.N, sizeof *bitpr);
 
   /* Print header for summary table. */
 
@@ -244,7 +249,7 @@ int main
       break;
     }
     case Enum_block: case Enum_bit:
-    { enum_decode_setup(&gm, table, gen_file);
+    { enum_decode_setup(&arena, &gm, table, gen_file);
       break;
     }
     default: abort();
@@ -334,7 +339,7 @@ int main
         break;
       }
       case Enum_block: case Enum_bit:
-      { iters = enum_decode (lratio, dblk, bitpr, dec_method==Enum_block, H, &gm, table, block_no);
+      { iters = enum_decode ((void *)((uintptr_t)arena.base + arena.used), arena.size - arena.used, lratio, dblk, bitpr, dec_method==Enum_block, H, &gm, table, block_no);
         break;
       }
       default: abort();

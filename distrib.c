@@ -43,7 +43,8 @@
 */
 
 distrib *distrib_create
-( char *c		/* String describing distribution over numbers */
+( Arena *arena,
+  char *c		/* String describing distribution over numbers */
 )
 {
   distrib *d;
@@ -55,10 +56,9 @@ distrib *distrib_create
   /* Check for special case of a single number. */
 
   if (sscanf(c,"%d%c",&n,&junk)==1 && n>0)
-  { tstr = chk_alloc ( (int)(4.1+log10(n)), sizeof(*tstr));
+  { tstr = chk_alloc (arena, (int)(4.1+log10(n)), sizeof(*tstr));
     sprintf(tstr,"1x%d",n);
-    d = distrib_create(tstr);
-    free(tstr);
+    d = distrib_create(arena, tstr);
     return d;
   }
 
@@ -68,7 +68,7 @@ distrib *distrib_create
   size = 0;
   sum = 0;
 
-  d = chk_alloc(1, sizeof *d);
+  d = chk_alloc(arena, 1, sizeof *d);
 
   for (;;)
   { 
@@ -95,7 +95,7 @@ distrib *distrib_create
   /* Allocate memory for the list and fill it in */
 
   d->size = size;
-  d->list = chk_alloc (size, sizeof(distrib_entry));
+  d->list = chk_alloc (arena, size, sizeof(distrib_entry));
 
   i = 0;
   str = c;
@@ -120,16 +120,6 @@ distrib *distrib_create
   }
 
   return d;
-}
-
-
-/* FREE SPACE OCCUPIED A DISTRIBUTION LIST. */
-
-void distrib_free
-( distrib *d 	/* List to free */
-)
-{ free(d->list);
-  free(d);
 }
 
 
@@ -161,16 +151,21 @@ int distrib_max
 
 #ifdef TEST_DISTRIB
 
-main
+int main
 ( int argc,
   char **argv
 )
 {
+  Arena a;
   distrib *d;
   int i, j;
 
+  a.size = 1024 * 1024;
+  a.base = malloc(a.size);
+  a.used = 0;
+
   for (i = 1; i<argc; i++)
-  { d = distrib_create(argv[i]);
+  { d = distrib_create(&a, argv[i]);
     if (d==0)
     { printf("Error\n\n");
     }
@@ -181,6 +176,8 @@ main
       printf("\n");
     }
   }
+
+  free(a.base);
 
   exit(0);
 }

@@ -26,24 +26,29 @@
 /* ENCODE A BLOCK USING A SPARSE REPRESENTATION OF THE GENERATOR MATRIX. */
 
 void sparse_encode
-( char *sblk,
+( void *mem,
+  size_t mem_size,
+  char *sblk,
   char *cblk,
   mod2sparse *H,		/* Parity check matrix */
   gen_matrix *gm		/* Generator matrix */
 )
 {
-  int i, j;
+  Arena arena;
+  int j;
 
   mod2entry *e;
   char *x, *y;
 
-  x = chk_alloc (gm->dim.M, sizeof *x);
-  y = chk_alloc (gm->dim.M, sizeof *y);
+  arena.base = mem;
+  arena.size = mem_size;
+  arena.used = 0;
+
+  x = chk_alloc (&arena, gm->dim.M, sizeof *x);
+  y = chk_alloc (&arena, gm->dim.M, sizeof *y);
 
   /* Multiply the vector of source bits by the systematic columns of the 
      parity check matrix, giving x.  Also copy these bits to the coded block. */
-
-  for (i = 0; i<gm->dim.M; i++) x[i] = 0;
 
   for (j = gm->dim.M; j<gm->dim.N; j++)
   { 
@@ -67,9 +72,6 @@ void sparse_encode
     abort(); /* Shouldn't occur, even if the parity check matrix has 
                 redundant rows */
   }
-
-  free(x);
-  free(y);
 }
 
 

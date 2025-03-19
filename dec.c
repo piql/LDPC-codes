@@ -47,12 +47,13 @@
  */
 
 void enum_decode_setup(
+  Arena *arena,
   gen_matrix *gm,
   int table,		/* Trace option, 2 for a table of decoding details */
   char *gen_file		/* Generator file for Enum_block and Enum_bit */
 )
 {
-  read_gen(gen_file,0,0, gm);
+  read_gen(arena, gen_file,0,0, gm);
 
   if (gm->dim.N-gm->dim.M>31)
   { fprintf(stderr,
@@ -67,7 +68,9 @@ void enum_decode_setup(
 }
 
 unsigned enum_decode
-( double *lratio,	/* Likelihood ratios for bits */
+( void *mem,
+  size_t mem_size,
+  double *lratio,	/* Likelihood ratios for bits */
   char *dblk, 		/* Place to stored decoded message */
   double *bitpr,	/* Place to store marginal bit probabilities */
   int max_block,		/* Maximize probability of whole block being correct? */
@@ -77,6 +80,7 @@ unsigned enum_decode
   int block_no		/* Number of current block, from zero */
 )
 {
+  Arena arena;
   mod2dense *u, *v;
   double lk, maxlk, tpr;
   double *bpr, *lk0, *lk1;
@@ -88,22 +92,25 @@ unsigned enum_decode
   if (gm->dim.N-gm->dim.M>31) abort();
 
   /* Allocate needed space. */
+  arena.base = mem;
+  arena.size = mem_size;
+  arena.used = 0;
 
   bpr = bitpr;
   if (bpr==0 && max_block==0)
-  { bpr = chk_alloc (gm->dim.N, sizeof *bpr);
+  { bpr = chk_alloc (&arena, gm->dim.N, sizeof *bpr);
   }
 
-  cblk = chk_alloc (gm->dim.N, sizeof *cblk);
+  cblk = chk_alloc (&arena, gm->dim.N, sizeof *cblk);
 
   if (gm->type=='d')
-  { u = mod2dense_allocate(gm->dim.N-gm->dim.M,1);
-    v = mod2dense_allocate(gm->dim.M,1);
+  { u = mod2dense_allocate(&arena, gm->dim.N-gm->dim.M,1);
+    v = mod2dense_allocate(&arena, gm->dim.M,1);
   }
 
   else if (gm->type=='m')
-  { u = mod2dense_allocate(gm->dim.M,1);
-    v = mod2dense_allocate(gm->dim.M,1);
+  { u = mod2dense_allocate(&arena, gm->dim.M,1);
+    v = mod2dense_allocate(&arena, gm->dim.M,1);
   } 
 
   else
@@ -111,8 +118,8 @@ unsigned enum_decode
     v = NULL;
   }
 
-  lk0 = chk_alloc (gm->dim.N, sizeof *lk0);
-  lk1 = chk_alloc (gm->dim.N, sizeof *lk1);
+  lk0 = chk_alloc (&arena, gm->dim.N, sizeof *lk0);
+  lk1 = chk_alloc (&arena, gm->dim.N, sizeof *lk1);
 
   /* Pre-compute likelihoods for bits. */
 
@@ -143,7 +150,7 @@ unsigned enum_decode
 
     switch (gm->type)
     { case 's':
-      { sparse_encode (sblk, cblk, H, gm);
+      { sparse_encode ((void*)((uintptr_t)arena.base + arena.used), arena.size, sblk, cblk, H, gm);
         break;
       }
       case 'd':
@@ -206,13 +213,6 @@ unsigned enum_decode
     { dblk[j] = bpr[j]>=0.5;
     }
   }
-
-  /* Free space. */
-
-  if (bpr!=0 && bpr!=bitpr) free(bpr);
-  free(cblk);
-  free(lk0);
-  free(lk1);
 
   return 1<<(gm->dim.N-gm->dim.M);
 }

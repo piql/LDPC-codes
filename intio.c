@@ -80,7 +80,9 @@ void intio_write
 
 #ifdef TEST_INTIO
 
-main(void)
+#include <stdlib.h>
+
+int main(void)
 { 
   FILE *f;
   f = fopen("test","wb");
@@ -92,8 +94,8 @@ main(void)
   f = fopen("test","rb");
   if (intio_read(f)!=334
    || intio_read(f)!=-40000
-   || intio_read(f)!=0x8fffffff
-   || intio_read(f)!=-0x8fffffff)
+   || (unsigned)intio_read(f)!=0x8fffffff
+   || (unsigned)intio_read(f)!=-0x8fffffff)
   { fprintf(stderr,"got back bad data\n");
     exit(1);
   }

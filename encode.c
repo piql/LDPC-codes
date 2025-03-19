@@ -35,6 +35,7 @@ int main
   char **argv
 )
 {
+  Arena arena;
   char *source_file, *encoded_file;
   char *pchk_file, *gen_file;
   mod2dense *u, *v;
@@ -81,9 +82,13 @@ int main
     exit(1);
   }
 
+  arena.size = 16 * 1024 * 1024;
+  arena.base = malloc(arena.size);
+  arena.used = 0;
+
   /* Read parity check file */
 
-  H = read_pchk(pchk_file, &gm.dim);
+  H = read_pchk(&arena, pchk_file, &gm.dim);
 
   if (gm.dim.N<=gm.dim.M)
   { fprintf(stderr,
@@ -94,18 +99,18 @@ int main
 
   /* Read generator matrix file. */
 
-  read_gen(gen_file,0,0, &gm);
+  read_gen(&arena, gen_file,0,0, &gm);
 
   /* Allocate needed space. */
 
   if (gm.type=='d')
-  { u = mod2dense_allocate(gm.dim.N-gm.dim.M,1);
-    v = mod2dense_allocate(gm.dim.M,1);
+  { u = mod2dense_allocate(&arena, gm.dim.N-gm.dim.M,1);
+    v = mod2dense_allocate(&arena, gm.dim.M,1);
   }
 
   else if (gm.type=='m')
-  { u = mod2dense_allocate(gm.dim.M,1);
-    v = mod2dense_allocate(gm.dim.M,1);
+  { u = mod2dense_allocate(&arena, gm.dim.M,1);
+    v = mod2dense_allocate(&arena, gm.dim.M,1);
   }
 
   else
@@ -129,9 +134,9 @@ int main
     exit(1);
   }
 
-  sblk = chk_alloc (gm.dim.N-gm.dim.M, sizeof *sblk);
-  cblk = chk_alloc (gm.dim.N, sizeof *cblk);
-  chks = chk_alloc (gm.dim.M, sizeof *chks);
+  sblk = chk_alloc (&arena, gm.dim.N-gm.dim.M, sizeof *sblk);
+  cblk = chk_alloc (&arena, gm.dim.N, sizeof *cblk);
+  chks = chk_alloc (&arena, gm.dim.M, sizeof *chks);
 
   /* Encode successive blocks. */
 
@@ -147,7 +152,7 @@ int main
 
     switch (gm.type)
     { case 's':
-      { sparse_encode (sblk, cblk, H, &gm);
+      { sparse_encode ((void *)((uintptr_t)arena.base + arena.used), arena.size - arena.used, sblk, cblk, H, &gm);
         break;
       }
       case 'd':

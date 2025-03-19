@@ -18,6 +18,7 @@
 #include <string.h>
 
 #include "open.h"
+#include "alloc.h"
 #include "mod2sparse.h"
 #include "mod2dense.h"
 #include "rcode.h"
@@ -32,6 +33,7 @@ int main
   char **argv
 )
 {
+  Arena arena;
   char *gen_file, *systematic_file;
   FILE *systematicf;
   int i;
@@ -52,10 +54,14 @@ int main
     exit(1);
   }
 
+  arena.size = 16 * 1024 * 1024;
+  arena.base = malloc(arena.size);
+  arena.used = 0;
+
   /* Read generator matrix file, up to the point of finding out which
      are the message bits. */
   
-  read_gen(gen_file,1,1, &gm);
+  read_gen(&arena, gen_file,1,1, &gm);
 
 
   /* Open file to write systematic positions to. */

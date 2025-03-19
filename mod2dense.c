@@ -28,7 +28,8 @@
 /* ALLOCATE SPACE FOR A DENSE MOD2 MATRIX. */
 
 mod2dense *mod2dense_allocate 
-( int n_rows, 		/* Number of rows in matrix */
+( Arena *arena,
+  int n_rows, 		/* Number of rows in matrix */
   int n_cols		/* Number of columns in matrix */
 )
 {
@@ -40,33 +41,22 @@ mod2dense *mod2dense_allocate
     exit(1);
   }
 
-  m = chk_alloc (1, sizeof *m);
+  m = chk_alloc (arena, 1, sizeof *m);
 
   m->n_rows = n_rows;
   m->n_cols = n_cols;
 
   m->n_words = (n_rows+mod2_wordsize-1) >> mod2_wordsize_shift;
 
-  m->col = chk_alloc (m->n_cols, sizeof *m->col);
+  m->col = chk_alloc (arena, m->n_cols, sizeof *m->col);
 
-  m->bits = chk_alloc(m->n_words*m->n_cols, sizeof *m->bits);
+  m->bits = chk_alloc(arena, m->n_words*m->n_cols, sizeof *m->bits);
 
   for (j = 0; j<m->n_cols; j++)
   { m->col[j] = m->bits + j*m->n_words;
   }
 
   return m;
-}
-
-
-/* FREE SPACE OCCUPIED BY A DENSE MOD2 MATRIX. */
-
-void mod2dense_free
-( mod2dense *m		/* Matrix to free */
-)
-{ free(m->bits);
-  free(m->col);
-  free(m);
 }
 
 
@@ -182,7 +172,7 @@ void mod2dense_copycols
 
 /* PRINT A DENSE MOD2 MATRIX IN HUMAN-READABLE FORM. */
 
-void mod2dense_print     
+void mod2dense_print
 ( FILE *f,
   mod2dense *m
 )
@@ -204,7 +194,7 @@ void mod2dense_print
    with a different byte-ordering.  At present, this assumes that the words 
    used to pack bits into are no longer than 32 bits. */
 
-int mod2dense_write     
+int mod2dense_write
 ( FILE *f, 
   mod2dense *m
 )
@@ -231,8 +221,9 @@ int mod2dense_write
 
 /* READ A DENSE MOD2 MATRIX STORED IN MACHINE-READABLE FORM FROM A FILE. */
 
-mod2dense *mod2dense_read  
-( FILE *f
+mod2dense *mod2dense_read
+( Arena *arena,
+  FILE *f
 )
 { 
   int n_rows, n_cols;
@@ -245,15 +236,14 @@ mod2dense *mod2dense_read
   n_cols = intio_read(f);
   if (feof(f) || ferror(f) || n_cols<=0) return 0;
 
-  m = mod2dense_allocate(n_rows,n_cols);
+  m = mod2dense_allocate(arena, n_rows,n_cols);
 
   for (j = 0; j<mod2dense_cols(m); j++)
   {
     for (k = 0; k<m->n_words; k++)
     { m->col[j][k] = intio_read(f);
       if (feof(f) || ferror(f)) 
-      { mod2dense_free(m);
-        return 0;
+      { return 0;
       }
     }
   }
@@ -264,7 +254,7 @@ mod2dense *mod2dense_read
 
 /* GET AN ELEMENT FROM A DENSE MOD2 MATRIX. */
 
-int mod2dense_get  
+int mod2dense_get
 ( mod2dense *m, 	/* Matrix to get element from */
   int row,		/* Row of element (starting with zero) */
   int col		/* Column of element (starting with zero) */
@@ -282,7 +272,7 @@ int mod2dense_get
 
 /* SET AN ELEMENT IN A DENSE MOD2 MATRIX. */
 
-void mod2dense_set 
+void mod2dense_set
 ( mod2dense *m, 	/* Matrix to modify element of */
   int row,		/* Row of element (starting with zero) */
   int col,		/* Column of element (starting with zero) */
@@ -305,7 +295,7 @@ void mod2dense_set
 
 /* FLIP AN ELEMENT OF A DENSE MOD2 MATRIX. */
 
-int mod2dense_flip  
+int mod2dense_flip
 ( mod2dense *m, 	/* Matrix to flip element in */
   int row,		/* Row of element (starting with zero) */
   int col		/* Column of element (starting with zero) */
@@ -572,7 +562,7 @@ int mod2dense_invert_selected
   int i, j, k, n, n2, w, k0, b0, c, R;
 
   if (r==m)
-  { fprintf(stderr, 
+  { fprintf(stderr,
       "mod2dense_invert_selected2: Result matrix is the same as the operand\n");
     exit(1);
   }

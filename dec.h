@@ -23,8 +23,8 @@ typedef enum
 
 /* PROCEDURES RELATING TO DECODING METHODS. */
 
-void enum_decode_setup (gen_matrix *gm, int table, char *gen_file);
-unsigned enum_decode (double *, char *, double *, int, mod2sparse *H, gen_matrix *gm, int table, int block_no);
+void enum_decode_setup (Arena *, gen_matrix *gm, int table, char *gen_file);
+unsigned enum_decode (void *mem, size_t mem_size, double *, char *, double *, int, mod2sparse *H, gen_matrix *gm, int table, int block_no);
 
 void prprp_decode_setup (int table);
 unsigned prprp_decode 
