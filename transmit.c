@@ -40,6 +40,8 @@ int main
   channel_type channel;
   double channel_data;
 
+  rfile = NULL;
+
   /* Look at arguments.  The arguments specifying the channel are looked
      at by channel_parse in channel.c */
 

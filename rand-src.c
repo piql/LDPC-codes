@@ -35,6 +35,8 @@ int main
   int i, j;
   FILE *f;
 
+  n_bits = NULL;
+
   (void)argc;
   if (!(file = argv[1])
    || !argv[2] || sscanf(argv[2],"%d%c",&seed,&junk)!=1

@@ -970,6 +970,8 @@ int mod2sparse_decomp
   int i, j, k, cc, cc2, cc3, cr2, pr;
   int found, nnf;
 
+  k = 0;
+
   M = mod2sparse_rows(A);
   N = mod2sparse_cols(A);
 

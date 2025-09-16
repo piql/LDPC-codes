@@ -51,7 +51,9 @@ int main
   gen_matrix gm;
 
   strategy = Mod2sparse_first;
+  gen_file = NULL;
   other_gen_file = NULL;
+  method = Sparse;
 
   /* Look at arguments. */
 

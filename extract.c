@@ -41,6 +41,9 @@ int main
 
   gen_matrix gm;
 
+  coded_file = NULL;
+  ext_file = NULL;
+
   /* Look at arguments. */
 
   (void)argc;

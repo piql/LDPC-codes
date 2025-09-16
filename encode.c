@@ -46,6 +46,10 @@ int main
   mod2sparse *H;
   gen_matrix gm;
 
+  source_file = NULL;
+  encoded_file = NULL;
+  gen_file = NULL;
+
   /* Look at initial flag arguments. */
 
   blockio_flush = 0;

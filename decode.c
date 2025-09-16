@@ -79,6 +79,8 @@ int main
   bsc_data = NULL;
   misc_data = NULL;
 
+  rfile = NULL;
+  dec_method = Enum_block;
   gen_file = NULL;
 
   /* Look at initial flag arguments. */

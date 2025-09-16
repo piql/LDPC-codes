@@ -58,6 +58,9 @@ int main
   mod2sparse *H;
   int M;
   int N;
+
+  method = Evencol;
+  d = NULL;
   
   /* Look at initial arguments. */
 
