@@ -971,6 +971,7 @@ int mod2sparse_decomp
   int found, nnf;
 
   k = 0;
+  acnt = NULL;
 
   M = mod2sparse_rows(A);
   N = mod2sparse_cols(A);
